@@ -29,6 +29,16 @@ class LeaveRequest extends BaseModel
         return $this->belongsTo(Employee::class);
     }
 
+    public function hrDocument(): BelongsTo
+    {
+        return $this->belongsTo(HrDocument::class, 'hr_document_id');
+    }
+
+    public function substituteEmployee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'substitute_employee_id');
+    }
+
     public function scopeForEmployee(Builder $query, $employeeId): Builder
     {
         return $query->where('employee_id', $employeeId);

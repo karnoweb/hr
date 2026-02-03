@@ -2,6 +2,8 @@
 
 A comprehensive HR management package for Laravel with Iranian (Jalali) calendar support, payroll, leave, attendance, workflow, and document management.
 
+**راهنمای استفاده (فارسی):** [docs/USAGE.md](docs/USAGE.md)
+
 ## Requirements
 
 - PHP 8.2+
@@ -42,32 +44,41 @@ Edit `config/hr.php` (or use env) for:
 
 ## Usage
 
-### Models (namespace `Karnoweb\Hr\Models`)
+Common operations are done via the **`Hr` facade** and its sub-services; in your app you usually need a single `use`.
 
-- **Employee** – morph to your User (employable); employee_code, hire_date, status, branch
-- **Department** – tree (parent_id, path, level)
-- **Position**, **EmployeePosition** – current position with effective_date history
-- **Contract** – type (permanent, temporary, …), status (active, ended, terminated)
-- **Shift**, **ShiftPattern**, **EmployeeShiftAssignment**
-- **Holiday**, **AttendanceRecord**, **OvertimeRecord**
-- **LeaveRequest**, **MissionRequest**, **LeaveBalance**
-- **HrDocument** – type (hire, termination, position_change, salary_change, leave, mission, loan, …), status (draft, pending, approved, rejected, locked), workflow
-- **Workflow**, **WorkflowStep**, **DocumentApproval**, **DocumentHistory**
-- **SalaryItem**, **SalaryStructure**, **EmployeeSalary**, **EmployeeSalaryItem**
-- **Loan**, **LoanPayment**
-- **PayrollPeriod**, **PayrollRecord**
-
-### Enums (namespace `Karnoweb\Hr\Enums`)
-
-EmployeeStatus, ContractType, ContractStatus, DocumentType, DocumentStatus, AttendanceStatus, LeaveRequestStatus, OvertimeType, PayrollPeriodStatus, SalaryItemType, CalculationType, LoanStatus, ApproverType, ApprovalStatus.
-
-### Facade
+### Facade and sub-services
 
 ```php
 use Karnoweb\Hr\Facades\Hr;
 
+// Config
 Hr::config('leave.types.annual.days_per_year');
+
+// Employees: create for User, find by User, assign position (employee_code auto-generated if empty)
+$employee = Hr::employees()->createForUser($user, ['branch_id' => 1, 'hire_date' => now()]);
+$employee = Hr::employees()->findByUser($user);
+Hr::employees()->assignPosition($employee, $departmentId, $positionId, $effectiveDate);
+Hr::employees()->generateEmployeeCode($branchId);
+
+// Leave: request leave, get balance
+$request = Hr::leave()->request($employee, ['type' => 'annual', 'start_date' => $from, 'end_date' => $to, 'days' => 3]);
+$balance = Hr::leave()->balance($employee, 1403, 'annual');
+
+// Documents and workflow: create, submit, approve/reject step
+$doc = Hr::documents()->create(DocumentType::Leave, $employee, ['leave_request_id' => $request->id, 'days' => 3], ['created_by' => auth()->id()]);
+Hr::documents()->submit($doc);
+Hr::documents()->approve($approval, $comment);
+Hr::documents()->reject($approval, $comment);
 ```
+
+### Models and Enums (advanced)
+
+For direct database access use:
+
+- **Models** (`Karnoweb\Hr\Models`): Employee, Department, Position, EmployeePosition, Contract, LeaveRequest, LeaveBalance, HrDocument, Workflow, WorkflowStep, DocumentApproval, SalaryItem, SalaryStructure, EmployeeSalary, Loan, PayrollPeriod, PayrollRecord, …
+- **Enums** (`Karnoweb\Hr\Enums`): EmployeeStatus, ContractType, DocumentType, DocumentStatus, LeaveRequestStatus, ApprovalStatus, …
+
+More examples: [docs/USAGE.md](docs/USAGE.md)
 
 ## Table prefix
 

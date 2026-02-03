@@ -97,12 +97,15 @@ class HrDocument extends BaseModel
 
     public static function generateDocumentNumber(HrDocument $document): string
     {
-        $prefix = strtoupper(substr($document->type->value, 0, 3));
-        $year = now()->format('Y');
-        $sequence = static::where('type', $document->type)
-            ->whereYear('created_at', $year)
-            ->count() + 1;
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($document) {
+            $prefix = strtoupper(substr($document->type->value, 0, 3));
+            $year = now()->format('Y');
+            $sequence = static::where('type', $document->type)
+                ->whereYear('created_at', $year)
+                ->lockForUpdate()
+                ->count() + 1;
 
-        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
+            return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
+        });
     }
 }

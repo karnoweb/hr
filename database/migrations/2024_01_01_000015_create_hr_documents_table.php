@@ -19,7 +19,7 @@ return new class extends Migration
             $table->date('effective_date');
             $table->date('expiry_date')->nullable();
             $table->string('status', 20)->default('draft');
-            $table->json('data');
+            $table->json('data')->nullable();
             $table->text('notes')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('approved_by')->nullable();
