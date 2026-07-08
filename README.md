@@ -6,14 +6,18 @@ A comprehensive HR management package for Laravel with Iranian (Jalali) calendar
 
 ## Requirements
 
-- PHP 8.2+
-- Laravel 10.x, 11.x or 12.x
+- PHP 8.3+
+- Laravel 13.x
 - morilog/jalali ^3.0
 
 ## Installation
 
 ```bash
-composer require karnoweb/hr
+# Laravel 13
+composer require karnoweb/hr:^13.0
+
+# Laravel 10–12
+composer require karnoweb/hr:^1.0
 ```
 
 Publish config (optional):
