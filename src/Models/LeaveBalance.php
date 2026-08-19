@@ -4,7 +4,19 @@ namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $employee_id
+ * @property int $year
+ * @property string $type
+ * @property string|float $entitled_days
+ * @property string|float $used_days
+ * @property string|float $carried_days
+ * @property string|float $adjustment_days
+ * @property string|float $remaining_days
+ * @property string|null $notes
+ */
 class LeaveBalance extends BaseModel
 {
     protected $table = 'leave_balances';

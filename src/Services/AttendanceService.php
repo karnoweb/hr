@@ -248,13 +248,14 @@ class AttendanceService
         });
     }
 
-    public function resolveInitialStatus(Employee $employee, Carbon $date): AttendanceStatus
+    public function resolveInitialStatus(Employee $employee, DateTimeInterface|string $date): AttendanceStatus
     {
-        if ($this->workingDayCalculator->isHoliday($date, $employee->branch_id)) {
+        $day = Carbon::parse($date)->startOfDay();
+        if ($this->workingDayCalculator->isHoliday($day, $employee->branch_id)) {
             return AttendanceStatus::Holiday;
         }
 
-        if (! $this->workingDayCalculator->isWorkingDay($date, $employee->branch_id)) {
+        if (! $this->workingDayCalculator->isWorkingDay($day, $employee->branch_id)) {
             return AttendanceStatus::Weekend;
         }
 
@@ -358,5 +359,70 @@ class AttendanceService
         }
 
         return (int) $overlapStart->diffInMinutes($overlapEnd);
+    }
+
+    /**
+     * Mark working days in a range with leave/mission status (HR-058).
+     *
+     * Skips days that already have clock-in data (explicit attendance overrides).
+     */
+    public function markStatusForWorkingDays(
+        Employee $employee,
+        DateTimeInterface|string $start,
+        DateTimeInterface|string $end,
+        AttendanceStatus $status
+    ): void {
+        $start = Carbon::parse($start)->startOfDay();
+        $end = Carbon::parse($end)->startOfDay();
+
+        foreach ($this->workingDayCalculator->dates($start, $end, $employee->branch_id) as $day) {
+            $record = AttendanceRecord::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('date', $day->toDateString())
+                ->first();
+
+            if ($record !== null && $record->clock_in !== null) {
+                continue;
+            }
+
+            AttendanceRecord::query()->updateOrCreate(
+                [
+                    'employee_id' => $employee->id,
+                    'date' => $day->toDateString(),
+                ],
+                [
+                    'status' => $status,
+                    'source' => $status === AttendanceStatus::Leave ? 'leave' : 'mission',
+                ]
+            );
+        }
+    }
+
+    /**
+     * Restore placeholder statuses after a cancelled future leave/mission.
+     */
+    public function revertStatusForWorkingDays(
+        Employee $employee,
+        DateTimeInterface|string $start,
+        DateTimeInterface|string $end
+    ): void {
+        $start = Carbon::parse($start)->startOfDay();
+        $end = Carbon::parse($end)->startOfDay();
+
+        foreach ($this->workingDayCalculator->dates($start, $end, $employee->branch_id) as $day) {
+            $record = AttendanceRecord::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('date', $day->toDateString())
+                ->first();
+
+            if ($record === null || $record->clock_in !== null) {
+                continue;
+            }
+
+            $record->update([
+                'status' => $this->resolveInitialStatus($employee, $day),
+                'source' => 'system',
+            ]);
+        }
     }
 }

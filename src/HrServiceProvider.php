@@ -5,11 +5,14 @@ namespace Karnoweb\Hr;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Karnoweb\Hr\Console\Commands\AutoClockOutCommand;
+use Karnoweb\Hr\Console\Commands\CarryOverLeaveBalancesCommand;
 use Karnoweb\Hr\Services\AttendanceService;
 use Karnoweb\Hr\Services\ContractService;
 use Karnoweb\Hr\Services\DocumentService;
 use Karnoweb\Hr\Services\EmployeeService;
+use Karnoweb\Hr\Services\LeaveBalanceService;
 use Karnoweb\Hr\Services\LeaveService;
+use Karnoweb\Hr\Services\MissionService;
 use Karnoweb\Hr\Services\ShiftAssignmentService;
 use Karnoweb\Hr\Services\ShiftResolver;
 use Karnoweb\Hr\Support\SequenceGenerator;
@@ -29,9 +32,11 @@ class HrServiceProvider extends ServiceProvider
         $this->app->singleton(ShiftResolver::class);
         $this->app->singleton(ShiftAssignmentService::class);
         $this->app->singleton(AttendanceService::class);
+        $this->app->singleton(LeaveBalanceService::class);
+        $this->app->singleton(LeaveService::class);
+        $this->app->singleton(MissionService::class);
         $this->app->singleton(EmployeeService::class);
         $this->app->singleton(ContractService::class);
-        $this->app->singleton(LeaveService::class);
         $this->app->singleton(DocumentService::class);
 
         $this->app->singleton('hr', fn ($app) => new Hr($app));
@@ -50,6 +55,7 @@ class HrServiceProvider extends ServiceProvider
 
             $this->commands([
                 AutoClockOutCommand::class,
+                CarryOverLeaveBalancesCommand::class,
             ]);
         }
 

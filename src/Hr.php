@@ -8,6 +8,7 @@ use Karnoweb\Hr\Services\ContractService;
 use Karnoweb\Hr\Services\DocumentService;
 use Karnoweb\Hr\Services\EmployeeService;
 use Karnoweb\Hr\Services\LeaveService;
+use Karnoweb\Hr\Services\MissionService;
 use Karnoweb\Hr\Services\ShiftAssignmentService;
 
 class Hr
@@ -44,6 +45,11 @@ class Hr
     public function leave(): LeaveService
     {
         return $this->app->make(LeaveService::class);
+    }
+
+    public function missions(): MissionService
+    {
+        return $this->app->make(MissionService::class);
     }
 
     public function documents(): DocumentService

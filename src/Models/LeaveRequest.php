@@ -4,8 +4,20 @@ namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Karnoweb\Hr\Enums\LeaveRequestStatus;
 
+/**
+ * @property int $employee_id
+ * @property string $type
+ * @property Carbon $start_date
+ * @property Carbon $end_date
+ * @property string|float $days
+ * @property string|float $hours
+ * @property LeaveRequestStatus $status
+ * @property int|null $hr_document_id
+ * @property string|null $reason
+ */
 class LeaveRequest extends BaseModel
 {
     protected $table = 'leave_requests';

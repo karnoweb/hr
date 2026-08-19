@@ -131,17 +131,33 @@ $request->validate([
 ### مرخصی
 
 ```php
-// ثبت درخواست مرخصی
+// ثبت درخواست — روزها به‌صورت پیش‌فرض از WorkingDayCalculator محاسبه می‌شوند
 $request = Hr::leave()->request($employee, [
     'type' => 'annual',
-    'start_date' => '1403/06/01',
-    'end_date' => '1403/06/03',
-    'days' => 3,
+    'start_date' => '2026-06-01',
+    'end_date' => '2026-06-05',
     'reason' => 'سفر خانوادگی',
-]);
+], ['create_document' => true]);  // اختیاری: HrDocument مرتبط
 
-// مانده مرخصی کارمند برای سال و نوع
-$balance = Hr::leave()->balance($employee, 1403, 'annual');
+Hr::leave()->approve($request);
+Hr::leave()->reject($request, 'دلیل رد');
+Hr::leave()->cancel($request);
+
+// مانده مرخصی
+$balance = Hr::leave()->balance($employee, 2026, 'annual');
+```
+
+### مأموریت
+
+```php
+$mission = Hr::missions()->request($employee, [
+    'start_date' => '2026-07-01',
+    'end_date' => '2026-07-03',
+    'destination' => 'اصفهان',
+    'purpose' => 'آموزش',
+], ['create_document' => true]);
+
+Hr::missions()->approve($mission);
 ```
 
 ### اسناد و گردش کار
@@ -351,51 +367,15 @@ $contract = $employee->currentContract;
 
 ### ثبت درخواست مرخصی
 
-```php
-use Karnoweb\Hr\Models\LeaveRequest;
-use Karnoweb\Hr\Enums\LeaveRequestStatus;
-
-$request = LeaveRequest::create([
-    'employee_id' => $employee->id,
-    'type' => 'annual',
-    'start_date' => '1403/06/01',
-    'end_date' => '1403/06/03',
-    'days' => 3,
-    'reason' => 'سفر خانوادگی',
-    'status' => LeaveRequestStatus::Pending,
-]);
-```
-
-### مانده مرخصی (LeaveBalance)
-
-برای هر کارمند و هر سال و هر نوع مرخصی یک رکورد `LeaveBalance` دارید (entitled, used, carried, remaining). می‌توانید قبل از ثبت درخواست، مانده را چک کنید:
+از `Hr::leave()->request()` / `approve()` / `reject()` / `cancel()` استفاده کنید (API کامل در بخش [فاساد](#استفاده-با-فاساد-پیشنهادی)). سرویس به‌صورت خودکار overlap، مانده، `fixed_days`، `once_per_employment` و سقف مرخصی ساعتی را اعتبارسنجی می‌کند.
 
 ```php
-$balance = $employee->leaveBalances()
-    ->where('year', 1403)
-    ->where('type', 'annual')
-    ->first();
-
-if ($balance && $balance->remaining_days >= 3) {
-    // ثبت درخواست مجاز
-}
+$balance = Hr::leave()->balance($employee, 2026, 'annual');
 ```
 
 ### درخواست مأموریت
 
-```php
-use Karnoweb\Hr\Models\MissionRequest;
-
-MissionRequest::create([
-    'employee_id' => $employee->id,
-    'start_date' => now(),
-    'end_date' => now()->addDays(2),
-    'destination' => 'تهران',
-    'purpose' => 'جلسه با مشتری',
-    'days' => 2,
-    'status' => \Karnoweb\Hr\Enums\LeaveRequestStatus::Pending,
-]);
-```
+از `Hr::missions()->request()` و متدهای lifecycle استفاده کنید. مأموریت همپوشان با مرخصی یا مأموریت دیگر رد می‌شود.
 
 ---
 

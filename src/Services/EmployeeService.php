@@ -349,6 +349,8 @@ class EmployeeService
                     'updated_at' => now(),
                 ]);
 
+            app(LeaveBalanceService::class)->handleTermination($employee);
+
             return $employee->refresh();
         });
     }

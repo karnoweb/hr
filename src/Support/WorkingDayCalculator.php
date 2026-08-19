@@ -2,7 +2,7 @@
 
 namespace Karnoweb\Hr\Support;
 
-use Illuminate\Support\Carbon;
+use Carbon\Carbon;
 use Karnoweb\Hr\Models\Holiday;
 
 /**

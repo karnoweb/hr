@@ -69,6 +69,10 @@ return [
     |--------------------------------------------------------------------------
     */
     'leave' => [
+        'termination' => [
+            // forfeit | payout | carry
+            'balance_policy' => 'forfeit',
+        ],
         'types' => [
             'annual' => [
                 'name' => 'مرخصی استحقاقی',

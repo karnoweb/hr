@@ -8,7 +8,7 @@ Small tracker for the HR-AUDIT phase work. Update as each phase lands.
 | 1 Core Employee Domain | **Done** | Sequence codes, unique identity indexes, terminate/reactivate/suspend, national-ID helper, lifecycle guard, BaseModel double-prefix fix, docs Security model |
 | 2 Organization & Contracts | **Done** | Branch-scoped codes, department cycle/delete guards, transactional updatePath, ContractService, active_key/current_key invariants, assignPosition hardening, HrDocumentReference, 62 tests |
 | 3 Attendance + Shifts | **Done** | AttendanceService, ShiftResolver, ShiftAssignmentService, WorkingDayCalculator, auto clock-out command, shift assignment current_key, holiday/weekend placeholders, 83 tests |
-| 4 Leave + Mission | Not started | |
+| 4 Leave + Mission | **Done** | LeaveBalanceService, LeaveService lifecycle, MissionService, carry-over command, attendance marking, termination balance policy, 99 tests |
 | 5 Overtime | Not started | |
 | 6 Salary | Not started | |
 | 7 Loans | Not started | |

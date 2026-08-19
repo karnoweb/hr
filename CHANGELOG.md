@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [13.0.1] - 2026-08-19
+
+Phases 0–4 of the HR audit implementation: foundation, employee domain, organization/contracts, attendance/shifts, and leave/mission.
+
 ### Added
 
 - Test harness (Orchestra Testbench + PHPUnit) with `phpunit.xml` and package bootstrap tests (HR-001).
@@ -30,6 +34,12 @@
 - Shift assignment `current_key` DB invariant migration (HR-039).
 - `ShiftPattern` JSON structure validation (HR-044).
 - Attendance + Shift Feature/Unit tests (HR-046).
+- `LeaveBalanceService`, leave balance validation, overlap detection, and `approve()`/`reject()`/`cancel()` lifecycle (HR-047–HR-054).
+- `MissionService` with leave/mission overlap checks and optional `HrDocument` creation (HR-056–HR-057).
+- Attendance auto-marking for approved leave/mission working days (HR-058).
+- `hr:carry-over-leave-balances` command and termination balance policy config (HR-053 / HR-055).
+- `Hr::missions()` facade entry (HR-059).
+- Leave + Mission Feature tests (HR-060).
 
 ### Changed
 
