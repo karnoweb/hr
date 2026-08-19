@@ -3,6 +3,7 @@
 namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class Holiday extends BaseModel
 {
@@ -19,11 +20,19 @@ class Holiday extends BaseModel
 
     public function scopeForBranch(Builder $query, $branchId): Builder
     {
+        if ($branchId === null) {
+            return $query->whereNull('branch_id');
+        }
+
         return $query->where(fn ($q) => $q->whereNull('branch_id')->orWhere('branch_id', $branchId));
     }
 
     public function scopeForDate(Builder $query, $date): Builder
     {
-        return $query->where('date', $date);
+        $dateString = $date instanceof \DateTimeInterface
+            ? Carbon::instance($date)->toDateString()
+            : Carbon::parse($date)->toDateString();
+
+        return $query->whereDate('date', $dateString);
     }
 }

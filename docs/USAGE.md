@@ -48,9 +48,85 @@ Hr::employees()->assignPosition($employee, $departmentId, $positionId, $effectiv
     'hr_document_id' => $documentId,  // اختیاری
 ]);
 
+// چرخه حیات
+Hr::employees()->suspend($employee);                    // تعلیق موقت — قرارداد/سمت/حقوق بسته نمی‌شود
+Hr::employees()->terminate($employee, now());           // خاتمه + بستن قرارداد/سمت/حقوق جاری و لغو درخواست‌های pending
+Hr::employees()->reactivate($employee);                 // استخدام مجدد — همان employee_code حفظ می‌شود
+
 // فقط تولید کد کارمند (مثلاً برای نمایش قبل از ذخیره)
 $code = Hr::employees()->generateEmployeeCode($branchId);
 ```
+
+### قرارداد
+
+```php
+use Karnoweb\Hr\Enums\ContractType;
+
+// استخدام — ایجاد اولین قرارداد فعال
+$contract = Hr::contracts()->hire($employee, [
+    'contract_number' => 'C-1403-001',
+    'type' => ContractType::Permanent,
+    'start_date' => '2026-01-01',
+    'hr_document_id' => $documentId,  // اختیاری — اعتبارسنجی app-level
+]);
+
+// تمدید — بستن قرارداد فعلی و باز کردن قرارداد جدید (اتمیک)
+$newContract = Hr::contracts()->renew($employee, [
+    'contract_number' => 'C-1404-001',
+    'start_date' => '2027-01-01',
+]);
+
+Hr::contracts()->extend($employee, '2028-12-31');       // تمدید end_date قرارداد فعال
+Hr::contracts()->terminate($employee, now());           // خاتمه قرارداد فعال
+```
+
+هر کارمند **حداکثر یک قرارداد فعال** دارد (`active_key` در DB). شماره قرارداد (`contract_number`) در کل سیستم یکتا است.
+
+### حضور و شیفت
+
+```php
+// انتساب شیفت ثابت یا الگوی چرخشی
+Hr::shiftAssignments()->assignShift($employee, $shiftId, $effectiveDate);
+Hr::shiftAssignments()->assignPattern($employee, $patternId, $effectiveDate, $patternStartDate);
+
+// ورود / خروج — دیرکرد و تعجیل از روی شیفت resolve‌شده محاسبه می‌شود
+Hr::attendance()->clockIn($employee);
+Hr::attendance()->clockOut($employee);
+
+// رکورد placeholder برای تعطیل/آخر هفته (بدون clock)
+Hr::attendance()->ensureDayRecord($employee, $date);
+
+// اصلاح دستی با audit trail در raw_data
+Hr::attendance()->adjust($employee, $date, ['late_minutes' => 0], $userId);
+```
+
+**سیاست شیفت شبانه:** فیلد `date` همیشه برابر تاریخ تقویمی **clock-in** است؛ خروج بعد از نیمه‌شب روی همان ردیف ثبت می‌شود.
+
+---
+
+## Security model
+
+این پکیج یک **دامنه HR** است، نه لایهٔ کنترل دسترسی اپلیکیشن. به‌صورت پیش‌فرض:
+
+- متدهای `EmployeeService` (و سایر سرویس‌ها) **بررسی نمی‌کنند** که caller مجاز به ساخت/خواندن/تغییر کارمند است یا نه.
+- فیلتر خودکار بر اساس `branch_id` اعمال نمی‌شود؛ هر کوییری پیش‌فرض می‌تواند کارمندان همهٔ شعب را برگرداند مگر اینکه اپ شما scope/policy بگذارد.
+- تنها استثنای intentional داخل پکیج، چک مالکیت approve/reject سند در فازهای بعدی است (وقتی پیاده شود).
+
+**مسئولیت integrator:** قبل از افشای این API به کاربران نهایی، authorization و branch-scoping را در controller/policy/middleware خودتان اعمال کنید. جزئیات یافته‌های ممیزی در `HR-AUDIT-08-SECURITY-TESTING.md` آمده است.
+
+برای اعتبارسنجی اختیاری کد ملی ایران (بدون اجبار در سرویس):
+
+```php
+use Karnoweb\Hr\Support\IranianNationalId;
+
+IranianNationalId::isValid('0123456789'); // true/false
+
+$request->validate([
+    'national_id' => ['required', new IranianNationalId],
+]);
+```
+
+---
 
 ### مرخصی
 
@@ -259,24 +335,7 @@ $position = $employee->currentPosition->position;
 
 ## استخدام و قرارداد
 
-### ایجاد قرارداد برای کارمند
-
-```php
-use Karnoweb\Hr\Models\Contract;
-use Karnoweb\Hr\Enums\ContractType;
-use Karnoweb\Hr\Enums\ContractStatus;
-
-Contract::create([
-    'employee_id' => $employee->id,
-    'contract_number' => 'C-1403-001',
-    'type' => ContractType::Permanent,
-    'start_date' => now(),
-    'end_date' => null,
-    'status' => ContractStatus::Active,
-]);
-```
-
-### قرارداد فعلی کارمند
+از `Hr::contracts()` برای چرخه حیات قرارداد استفاده کنید (جزئیات در بخش [فاساد](#استفاده-با-فاساد-پیشنهادی) بالا). برای خواندن:
 
 ```php
 $contract = $employee->currentContract;
@@ -359,24 +418,17 @@ $shift = Shift::create([
 ]);
 ```
 
-### ثبت حضور (AttendanceRecord)
+### ثبت حضور
+
+از `Hr::attendance()->clockIn()` / `clockOut()` استفاده کنید تا دقایق کار، تاخیر و تعجیل خودکار محاسبه شوند (API کامل در بخش [فاساد](#استفاده-با-فاساد-پیشنهادی)).
+
+دستور `php artisan hr:auto-clock-out` وقتی `config('hr.attendance.auto_clock_out')` فعال باشد، روی scheduler ساعتی اجرا می‌شود.
 
 ```php
-use Karnoweb\Hr\Models\AttendanceRecord;
-use Karnoweb\Hr\Enums\AttendanceStatus;
+use Karnoweb\Hr\Support\WorkingDayCalculator;
 
-AttendanceRecord::create([
-    'employee_id' => $employee->id,
-    'date' => today(),
-    'clock_in' => now()->setTime(8, 5),
-    'clock_out' => now()->setTime(16, 30),
-    'shift_id' => $shift->id,
-    'work_minutes' => 445,
-    'late_minutes' => 5,
-    'overtime_minutes' => 25,
-    'status' => AttendanceStatus::Present,
-    'source' => 'manual',
-]);
+$calculator = app(WorkingDayCalculator::class);
+$workingDays = $calculator->count($start, $end, $branchId);
 ```
 
 ### رکورد اضافه‌کار (OvertimeRecord)

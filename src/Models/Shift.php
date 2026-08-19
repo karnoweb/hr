@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int|null $branch_id
+ * @property string $start_time
+ * @property string $end_time
+ * @property string|null $break_start
+ * @property string|null $break_end
+ * @property bool $is_night_shift
+ */
 class Shift extends BaseModel
 {
     use SoftDeletes;

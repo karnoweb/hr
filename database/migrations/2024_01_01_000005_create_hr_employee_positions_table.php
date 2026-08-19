@@ -10,11 +10,11 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'employee_positions', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'employee_positions', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('employee_id')->constrained($prefix . 'employees')->cascadeOnDelete();
-            $table->foreignId('department_id')->constrained($prefix . 'departments')->cascadeOnDelete();
-            $table->foreignId('position_id')->constrained($prefix . 'positions')->cascadeOnDelete();
+            $table->foreignId('employee_id')->constrained($prefix.'employees')->cascadeOnDelete();
+            $table->foreignId('department_id')->constrained($prefix.'departments')->cascadeOnDelete();
+            $table->foreignId('position_id')->constrained($prefix.'positions')->cascadeOnDelete();
             $table->boolean('is_primary')->default(true);
             $table->date('effective_date');
             $table->date('end_date')->nullable();
@@ -30,6 +30,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'employee_positions');
+        Schema::dropIfExists($prefix.'employee_positions');
     }
 };

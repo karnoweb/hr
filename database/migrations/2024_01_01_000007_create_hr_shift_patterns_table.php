@@ -10,7 +10,7 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'shift_patterns', function (Blueprint $table) {
+        Schema::create($prefix.'shift_patterns', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('branch_id')->nullable()->index();
             $table->string('code', 50)->unique();
@@ -28,6 +28,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'shift_patterns');
+        Schema::dropIfExists($prefix.'shift_patterns');
     }
 };

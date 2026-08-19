@@ -5,7 +5,12 @@ namespace Karnoweb\Hr\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Karnoweb\Hr\Exceptions\InvalidOrganizationStructureException;
 
+/**
+ * @property int|null $branch_id
+ * @property string $code
+ */
 class Position extends BaseModel
 {
     use SoftDeletes;
@@ -22,6 +27,25 @@ class Position extends BaseModel
         'grade' => 'integer',
         'sort_order' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Position $position): void {
+            if (
+                $position->branch_id === null
+                && $position->isDirty('code')
+                && static::query()
+                    ->whereNull('branch_id')
+                    ->where('code', $position->code)
+                    ->when($position->exists, fn ($q) => $q->whereKeyNot($position->getKey()))
+                    ->exists()
+            ) {
+                throw new InvalidOrganizationStructureException(
+                    'A global position with this code already exists.'
+                );
+            }
+        });
+    }
 
     public function employeePositions(): HasMany
     {

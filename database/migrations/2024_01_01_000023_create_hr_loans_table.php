@@ -10,9 +10,9 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'loans', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'loans', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('employee_id')->constrained($prefix . 'employees')->cascadeOnDelete();
+            $table->foreignId('employee_id')->constrained($prefix.'employees')->cascadeOnDelete();
             $table->unsignedBigInteger('hr_document_id')->nullable();
             $table->string('loan_number', 50)->unique();
             $table->string('type', 30)->default('general');
@@ -36,6 +36,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'loans');
+        Schema::dropIfExists($prefix.'loans');
     }
 };

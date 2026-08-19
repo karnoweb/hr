@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Karnoweb\Hr\Enums\DocumentStatus;
 use Karnoweb\Hr\Enums\DocumentType;
 use Karnoweb\Hr\Exceptions\DocumentLockedException;
@@ -97,7 +98,7 @@ class HrDocument extends BaseModel
 
     public static function generateDocumentNumber(HrDocument $document): string
     {
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($document) {
+        return DB::transaction(function () use ($document) {
             $prefix = strtoupper(substr($document->type->value, 0, 3));
             $year = now()->format('Y');
             $sequence = static::where('type', $document->type)

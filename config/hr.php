@@ -40,6 +40,8 @@ return [
     */
     'employee_code' => [
         'auto_generate' => true,
+        // Placeholders: {year}, {sequence}, {branch}
+        // When sequence_per_branch=true, format MUST include {branch} or generation throws.
         'format' => '{year}-{sequence}',
         'sequence_length' => 4,
         'sequence_per_branch' => false,
@@ -161,6 +163,9 @@ return [
         'break_duration_minutes' => 60,
         'auto_clock_out' => false,
         'auto_clock_out_after_hours' => 12,
+        'corrections' => [
+            'require_approval' => false,
+        ],
     ],
 
     /*

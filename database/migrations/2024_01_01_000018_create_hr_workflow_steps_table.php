@@ -10,9 +10,9 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'workflow_steps', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'workflow_steps', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('workflow_id')->constrained($prefix . 'workflows')->cascadeOnDelete();
+            $table->foreignId('workflow_id')->constrained($prefix.'workflows')->cascadeOnDelete();
             $table->unsignedInteger('order');
             $table->string('name');
             $table->string('approver_type', 30);
@@ -31,6 +31,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'workflow_steps');
+        Schema::dropIfExists($prefix.'workflow_steps');
     }
 };

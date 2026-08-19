@@ -18,7 +18,9 @@
     },
     "require-dev": {
         "orchestra/testbench": "^11.0",
-        "phpunit/phpunit": "^11.0|^12.0"
+        "phpunit/phpunit": "^11.0|^12.0",
+        "laravel/pint": "^1.18",
+        "larastan/larastan": "^3.0"
     },
     "autoload": {
         "psr-4": {
@@ -29,6 +31,11 @@
         "psr-4": {
             "Karnoweb\\Hr\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "pint": "pint",
+        "analyse": "phpstan analyse --memory-limit=1G"
     },
     "extra": {
         "laravel": {

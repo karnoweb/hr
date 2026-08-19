@@ -7,13 +7,34 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Karnoweb\Hr\Enums\EmployeeStatus;
+use Karnoweb\Hr\Exceptions\InvalidEmployeeLifecycleException;
 
+/**
+ * @property int $id
+ * @property string $employable_type
+ * @property int|string $employable_id
+ * @property int|null $branch_id
+ * @property string $employee_code
+ * @property Carbon $hire_date
+ * @property Carbon|null $termination_date
+ * @property EmployeeStatus $status
+ * @property string|null $national_id
+ * @property bool $allowLifecycleStatusChange Internal flag set by EmployeeService lifecycle methods.
+ */
 class Employee extends BaseModel
 {
     use SoftDeletes;
 
     protected $table = 'employees';
+
+    /**
+     * When true, status may be changed on this instance (set only by EmployeeService
+     * terminate / reactivate / suspend). Direct `$employee->update(['status' => …])`
+     * is hard-blocked — see InvalidEmployeeLifecycleException.
+     */
+    public bool $allowLifecycleStatusChange = false;
 
     protected $fillable = [
         'employable_type', 'employable_id', 'branch_id', 'employee_code', 'hire_date', 'termination_date',
@@ -30,6 +51,44 @@ class Employee extends BaseModel
         'metadata' => 'array',
         'dependents_count' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Employee $employee): void {
+            if (
+                $employee->hire_date !== null
+                && $employee->termination_date !== null
+                && $employee->termination_date->copy()->startOfDay()->lt($employee->hire_date->copy()->startOfDay())
+            ) {
+                throw new InvalidEmployeeLifecycleException(
+                    'termination_date must be on or after hire_date.'
+                );
+            }
+        });
+
+        static::updating(function (Employee $employee): void {
+            if ($employee->isDirty('status') && ! $employee->allowLifecycleStatusChange) {
+                throw new InvalidEmployeeLifecycleException(
+                    'Employee status must be changed via EmployeeService::terminate(), reactivate(), or suspend().'
+                );
+            }
+        });
+
+        static::saved(function (Employee $employee): void {
+            $employee->allowLifecycleStatusChange = false;
+        });
+    }
+
+    /**
+     * Mark the next status write as an authorized lifecycle transition.
+     */
+    public function applyLifecycleStatus(EmployeeStatus $status): static
+    {
+        $this->allowLifecycleStatusChange = true;
+        $this->status = $status;
+
+        return $this;
+    }
 
     public function employable(): MorphTo
     {

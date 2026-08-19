@@ -10,11 +10,11 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'employee_shift_assignments', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'employee_shift_assignments', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('employee_id')->constrained($prefix . 'employees')->cascadeOnDelete();
-            $table->foreignId('shift_id')->nullable()->constrained($prefix . 'shifts')->nullOnDelete();
-            $table->foreignId('shift_pattern_id')->nullable()->constrained($prefix . 'shift_patterns')->nullOnDelete();
+            $table->foreignId('employee_id')->constrained($prefix.'employees')->cascadeOnDelete();
+            $table->foreignId('shift_id')->nullable()->constrained($prefix.'shifts')->nullOnDelete();
+            $table->foreignId('shift_pattern_id')->nullable()->constrained($prefix.'shift_patterns')->nullOnDelete();
             $table->date('effective_date');
             $table->date('end_date')->nullable();
             $table->date('pattern_start_date')->nullable();
@@ -29,6 +29,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'employee_shift_assignments');
+        Schema::dropIfExists($prefix.'employee_shift_assignments');
     }
 };

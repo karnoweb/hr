@@ -10,10 +10,10 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'payroll_records', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'payroll_records', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('payroll_period_id')->constrained($prefix . 'payroll_periods')->cascadeOnDelete();
-            $table->foreignId('employee_id')->constrained($prefix . 'employees')->cascadeOnDelete();
+            $table->foreignId('payroll_period_id')->constrained($prefix.'payroll_periods')->cascadeOnDelete();
+            $table->foreignId('employee_id')->constrained($prefix.'employees')->cascadeOnDelete();
             $table->unsignedBigInteger('hr_document_id')->nullable();
 
             $table->unsignedInteger('working_days')->default(0);
@@ -61,6 +61,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'payroll_records');
+        Schema::dropIfExists($prefix.'payroll_records');
     }
 };

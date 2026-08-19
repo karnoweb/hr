@@ -10,10 +10,10 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'employee_salaries', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'employee_salaries', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('employee_id')->constrained($prefix . 'employees')->cascadeOnDelete();
-            $table->foreignId('salary_structure_id')->nullable()->constrained($prefix . 'salary_structures')->nullOnDelete();
+            $table->foreignId('employee_id')->constrained($prefix.'employees')->cascadeOnDelete();
+            $table->foreignId('salary_structure_id')->nullable()->constrained($prefix.'salary_structures')->nullOnDelete();
             $table->decimal('base_salary', 15, 2);
             $table->date('effective_date');
             $table->date('end_date')->nullable();
@@ -25,10 +25,10 @@ return new class extends Migration
             $table->index('effective_date');
         });
 
-        Schema::create($prefix . 'employee_salary_items', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'employee_salary_items', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('employee_salary_id')->constrained($prefix . 'employee_salaries')->cascadeOnDelete();
-            $table->foreignId('salary_item_id')->constrained($prefix . 'salary_items')->cascadeOnDelete();
+            $table->foreignId('employee_salary_id')->constrained($prefix.'employee_salaries')->cascadeOnDelete();
+            $table->foreignId('salary_item_id')->constrained($prefix.'salary_items')->cascadeOnDelete();
             $table->decimal('value', 15, 2);
             $table->timestamps();
 
@@ -39,7 +39,7 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'employee_salary_items');
-        Schema::dropIfExists($prefix . 'employee_salaries');
+        Schema::dropIfExists($prefix.'employee_salary_items');
+        Schema::dropIfExists($prefix.'employee_salaries');
     }
 };

@@ -10,7 +10,7 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'departments', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'departments', function (Blueprint $table) use ($prefix) {
             $table->id();
             $table->unsignedBigInteger('branch_id')->nullable()->index();
             $table->unsignedBigInteger('parent_id')->nullable();
@@ -28,7 +28,7 @@ return new class extends Migration
 
             $table->foreign('parent_id')
                 ->references('id')
-                ->on($prefix . 'departments')
+                ->on($prefix.'departments')
                 ->nullOnDelete();
         });
     }
@@ -36,6 +36,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'departments');
+        Schema::dropIfExists($prefix.'departments');
     }
 };

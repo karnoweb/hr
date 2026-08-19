@@ -11,10 +11,9 @@ use Karnoweb\Hr\Models\LeaveRequest;
 /**
  * Service for leave requests and leave balance.
  *
- * @package Karnoweb\Hr\Services
  *
- * @see \Karnoweb\Hr\Models\LeaveRequest
- * @see \Karnoweb\Hr\Models\LeaveBalance
+ * @see LeaveRequest
+ * @see LeaveBalance
  */
 class LeaveService
 {

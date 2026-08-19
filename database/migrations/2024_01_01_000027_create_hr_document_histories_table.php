@@ -10,9 +10,9 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'document_histories', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'document_histories', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('hr_document_id')->constrained($prefix . 'documents')->cascadeOnDelete();
+            $table->foreignId('hr_document_id')->constrained($prefix.'documents')->cascadeOnDelete();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('action', 30);
             $table->string('from_status', 20)->nullable();
@@ -30,6 +30,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'document_histories');
+        Schema::dropIfExists($prefix.'document_histories');
     }
 };

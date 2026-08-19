@@ -10,7 +10,7 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'salary_structures', function (Blueprint $table) {
+        Schema::create($prefix.'salary_structures', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('branch_id')->nullable()->index();
             $table->string('code', 50)->unique();
@@ -23,10 +23,10 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-        Schema::create($prefix . 'salary_structure_items', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'salary_structure_items', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('salary_structure_id')->constrained($prefix . 'salary_structures')->cascadeOnDelete();
-            $table->foreignId('salary_item_id')->constrained($prefix . 'salary_items')->cascadeOnDelete();
+            $table->foreignId('salary_structure_id')->constrained($prefix.'salary_structures')->cascadeOnDelete();
+            $table->foreignId('salary_item_id')->constrained($prefix.'salary_items')->cascadeOnDelete();
             $table->decimal('value', 15, 2)->nullable();
             $table->timestamps();
 
@@ -37,7 +37,7 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'salary_structure_items');
-        Schema::dropIfExists($prefix . 'salary_structures');
+        Schema::dropIfExists($prefix.'salary_structure_items');
+        Schema::dropIfExists($prefix.'salary_structures');
     }
 };

@@ -2,47 +2,52 @@
 
 namespace Karnoweb\Hr;
 
+use Illuminate\Contracts\Foundation\Application;
+use Karnoweb\Hr\Services\AttendanceService;
+use Karnoweb\Hr\Services\ContractService;
 use Karnoweb\Hr\Services\DocumentService;
 use Karnoweb\Hr\Services\EmployeeService;
 use Karnoweb\Hr\Services\LeaveService;
+use Karnoweb\Hr\Services\ShiftAssignmentService;
 
 class Hr
 {
-    protected ?EmployeeService $employeeService = null;
-
-    protected ?LeaveService $leaveService = null;
-
-    protected ?DocumentService $documentService = null;
+    public function __construct(
+        protected Application $app,
+    ) {}
 
     public function config(string $key, mixed $default = null): mixed
     {
-        return config('hr.' . $key, $default);
+        return config('hr.'.$key, $default);
     }
 
     public function employees(): EmployeeService
     {
-        if ($this->employeeService === null) {
-            $this->employeeService = new EmployeeService;
-        }
+        return $this->app->make(EmployeeService::class);
+    }
 
-        return $this->employeeService;
+    public function contracts(): ContractService
+    {
+        return $this->app->make(ContractService::class);
+    }
+
+    public function attendance(): AttendanceService
+    {
+        return $this->app->make(AttendanceService::class);
+    }
+
+    public function shiftAssignments(): ShiftAssignmentService
+    {
+        return $this->app->make(ShiftAssignmentService::class);
     }
 
     public function leave(): LeaveService
     {
-        if ($this->leaveService === null) {
-            $this->leaveService = new LeaveService;
-        }
-
-        return $this->leaveService;
+        return $this->app->make(LeaveService::class);
     }
 
     public function documents(): DocumentService
     {
-        if ($this->documentService === null) {
-            $this->documentService = new DocumentService;
-        }
-
-        return $this->documentService;
+        return $this->app->make(DocumentService::class);
     }
 }

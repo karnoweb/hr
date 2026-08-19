@@ -10,9 +10,9 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'document_attachments', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'document_attachments', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('hr_document_id')->constrained($prefix . 'documents')->cascadeOnDelete();
+            $table->foreignId('hr_document_id')->constrained($prefix.'documents')->cascadeOnDelete();
             $table->string('file_path');
             $table->string('file_name');
             $table->string('file_type', 50);
@@ -26,6 +26,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'document_attachments');
+        Schema::dropIfExists($prefix.'document_attachments');
     }
 };

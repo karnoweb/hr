@@ -4,8 +4,23 @@ namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Karnoweb\Hr\Enums\AttendanceStatus;
 
+/**
+ * @property int $employee_id
+ * @property Carbon $date
+ * @property Carbon|null $clock_in
+ * @property Carbon|null $clock_out
+ * @property int|null $shift_id
+ * @property int $work_minutes
+ * @property int $late_minutes
+ * @property int $early_leave_minutes
+ * @property AttendanceStatus $status
+ * @property string $source
+ * @property string|null $notes
+ * @property array|null $raw_data
+ */
 class AttendanceRecord extends BaseModel
 {
     protected $table = 'attendance_records';

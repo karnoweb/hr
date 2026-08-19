@@ -16,11 +16,10 @@ use Karnoweb\Hr\Models\Workflow;
 /**
  * Service for HR documents: create, submit, approve, reject with workflow and history.
  *
- * @package Karnoweb\Hr\Services
  *
- * @see \Karnoweb\Hr\Models\HrDocument
- * @see \Karnoweb\Hr\Models\DocumentApproval
- * @see \Karnoweb\Hr\Models\Workflow
+ * @see HrDocument
+ * @see DocumentApproval
+ * @see Workflow
  */
 class DocumentService
 {
@@ -166,6 +165,7 @@ class DocumentService
         $rejectedCount = $document->approvals()->where('status', ApprovalStatus::Rejected)->count();
         if ($rejectedCount > 0) {
             $document->update(['status' => DocumentStatus::Rejected]);
+
             return;
         }
 

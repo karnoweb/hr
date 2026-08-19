@@ -10,10 +10,10 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'document_approvals', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'document_approvals', function (Blueprint $table) use ($prefix) {
             $table->id();
-            $table->foreignId('hr_document_id')->constrained($prefix . 'documents')->cascadeOnDelete();
-            $table->foreignId('workflow_step_id')->constrained($prefix . 'workflow_steps')->cascadeOnDelete();
+            $table->foreignId('hr_document_id')->constrained($prefix.'documents')->cascadeOnDelete();
+            $table->foreignId('workflow_step_id')->constrained($prefix.'workflow_steps')->cascadeOnDelete();
             $table->unsignedBigInteger('assigned_to');
             $table->string('status', 20)->default('pending');
             $table->text('comment')->nullable();
@@ -29,6 +29,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'document_approvals');
+        Schema::dropIfExists($prefix.'document_approvals');
     }
 };

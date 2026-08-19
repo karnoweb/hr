@@ -10,7 +10,7 @@ return new class extends Migration
     {
         $prefix = config('hr.tables.prefix', 'hr_');
 
-        Schema::create($prefix . 'employees', function (Blueprint $table) use ($prefix) {
+        Schema::create($prefix.'employees', function (Blueprint $table) {
             $table->id();
             $table->string('employable_type');
             $table->unsignedBigInteger('employable_id');
@@ -47,6 +47,6 @@ return new class extends Migration
     public function down(): void
     {
         $prefix = config('hr.tables.prefix', 'hr_');
-        Schema::dropIfExists($prefix . 'employees');
+        Schema::dropIfExists($prefix.'employees');
     }
 };
