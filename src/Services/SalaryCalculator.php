@@ -94,7 +94,7 @@ class SalaryCalculator
      */
     protected function resolveCalculationItems(EmployeeSalary $employeeSalary): array
     {
-        /** @var \Illuminate\Support\Collection<string, SalaryItem> $items */
+        /** @var Collection<string, SalaryItem> $items */
         $items = collect();
 
         if ($employeeSalary->salaryStructure !== null) {

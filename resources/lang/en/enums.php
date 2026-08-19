@@ -75,6 +75,12 @@ return [
         'paid' => 'Paid',
         'locked' => 'Locked',
     ],
+    'payroll_record_status' => [
+        'draft' => 'Draft',
+        'calculated' => 'Calculated',
+        'approved' => 'Approved',
+        'paid' => 'Paid',
+    ],
     'salary_item_type' => [
         'earning' => 'Earning',
         'deduction' => 'Deduction',
@@ -88,6 +94,11 @@ return [
         'pending' => 'Pending',
         'active' => 'Active',
         'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+    ],
+    'loan_payment_status' => [
+        'pending' => 'Pending',
+        'paid' => 'Paid',
         'cancelled' => 'Cancelled',
     ],
     'approver_type' => [

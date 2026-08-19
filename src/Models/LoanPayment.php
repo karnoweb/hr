@@ -4,7 +4,18 @@ namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+use Karnoweb\Hr\Enums\LoanPaymentStatus;
 
+/**
+ * @property int $loan_id
+ * @property int|null $payroll_record_id
+ * @property int $installment_number
+ * @property float $amount
+ * @property Carbon $due_date
+ * @property Carbon|null $paid_date
+ * @property LoanPaymentStatus $status
+ */
 class LoanPayment extends BaseModel
 {
     protected $table = 'loan_payments';
@@ -17,6 +28,7 @@ class LoanPayment extends BaseModel
         'amount' => 'decimal:2',
         'due_date' => 'date',
         'paid_date' => 'date',
+        'status' => LoanPaymentStatus::class,
     ];
 
     public function loan(): BelongsTo
@@ -26,6 +38,6 @@ class LoanPayment extends BaseModel
 
     public function scopePending(Builder $query): Builder
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', LoanPaymentStatus::Pending);
     }
 }

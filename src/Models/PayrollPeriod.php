@@ -3,13 +3,20 @@
 namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Karnoweb\Hr\Enums\PayrollPeriodStatus;
 
 /**
+ * @property int|null $branch_id
+ * @property int $year
+ * @property int $month
  * @property Carbon $start_date
  * @property Carbon $end_date
+ * @property int $working_days
+ * @property PayrollPeriodStatus $status
+ * @property-read Collection<int, PayrollRecord> $records
  */
 class PayrollPeriod extends BaseModel
 {

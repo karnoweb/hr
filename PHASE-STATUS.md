@@ -11,9 +11,9 @@ Small tracker for the HR-AUDIT phase work. Update as each phase lands.
 | 4 Leave + Mission | **Done** | LeaveBalanceService, LeaveService lifecycle, MissionService, carry-over command, attendance marking, termination balance policy, 99 tests |
 | 5 Overtime | **Done** | OvertimeService, OvertimeMinuteClassifier, OvertimeStatus enum, attendance sync, min_minutes/monthly_cap/pre-approval, Hr::overtime(), 111 tests |
 | 6 Salary | **Done** | current_key migration, SalaryService, SalaryCalculator, expression evaluator, item validation, Hr::salaries(), 128 tests |
-| 7 Loans | Not started | |
-| 8 Payroll | Not started | |
-| 9 Insurance + Tax | Not started | |
+| 7 Loans | **Done** | LoanService, LoanPaymentStatus, installment unique, limits/schedule/repayment, Hr::loans(), 138 tests |
+| 8 Payroll | **Done** | PayrollService, PayrollCalculator, Insurance/Tax calculators, golden-master test, Hr::payroll(), 148 tests |
+| 9 Insurance + Tax | **Partial** | Versioned rates/brackets + calculators done (HR-103–108/112); import command + exemption overrides deferred |
 | 10 Documents | Not started | |
 | 11 Workflow | Not started | |
 | 12 Accounting boundary | Not started | |

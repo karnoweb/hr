@@ -3,6 +3,7 @@
 namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -17,7 +18,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_current
  * @property int|null $current_key Set to employee_id for the single current row; null otherwise.
  * @property-read SalaryStructure|null $salaryStructure
- * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeSalaryItem> $items
+ * @property-read Collection<int, EmployeeSalaryItem> $items
  */
 class EmployeeSalary extends BaseModel
 {

@@ -3,11 +3,28 @@
 namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Karnoweb\Hr\Enums\LoanStatus;
 
+/**
+ * @property int $employee_id
+ * @property int|null $hr_document_id
+ * @property string $loan_number
+ * @property float $amount
+ * @property int $installments
+ * @property float $installment_amount
+ * @property float $remaining_amount
+ * @property int $remaining_installments
+ * @property Carbon $start_date
+ * @property Carbon|null $end_date
+ * @property LoanStatus $status
+ * @property string|null $notes
+ * @property-read Collection<int, LoanPayment> $payments
+ */
 class Loan extends BaseModel
 {
     use SoftDeletes;

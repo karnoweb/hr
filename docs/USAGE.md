@@ -559,33 +559,53 @@ $result = Hr::salaries()->calculate($employee->currentSalary);
 
 ### دوره حقوق (PayrollPeriod) و سطر حقوق (PayrollRecord)
 
-برای هر ماه یک **PayrollPeriod** و برای هر کارمند یک **PayrollRecord** (با فیلدهای کارکرد، درآمدها، کسورات، خالص و قابل پرداخت) دارید. محاسبه واقعی حقوق (بیمه، مالیات، وام و …) را در لایه سرویس/ماشین‌حساب خود انجام دهید و خروجی را در همین مدل‌ها ذخیره کنید.
+```php
+$period = Hr::payroll()->openPeriod($branchId, 2026, 3);
+
+Hr::payroll()->calculate($period);
+Hr::payroll()->approve($period, approvedBy: $userId);
+Hr::payroll()->markPaid($period);
+```
+
+`PayrollCalculator` حضور، مرخصی، اضافه‌کار تأییدشده، حقوق جاری، بیمه/مالات (از جداول نسخه‌دار `insurance_rates` / `tax_brackets`) و اقساط وام سررسیدشده را تجمیع می‌کند. **کسر وام** فقط در `approve()` روی `LoanPayment` ثبت می‌شود، نه در `calculate()`.
+
+نرخ بیمه و پلکان مالیات از config فقط برای seed اولیه migration است — مقادیر NEEDS VERIFICATION هستند.
 
 ---
 
 ## وام
 
-### ثبت وام
+### درخواست و تأیید
+
+```php
+$loan = Hr::loans()->apply($employee, [
+    'amount' => 50_000_000,
+    'installments' => 12,
+    'start_date' => '2026-03-01',
+    'purpose' => 'ضروری',
+]);
+
+Hr::loans()->approve($loan);   // ساخت اقساط + فعال‌سازی
+Hr::loans()->reject($loan, 'دلیل رد');
+
+Hr::loans()->recordPayment($installment, paidDate: '2026-04-01');
+Hr::loans()->settleEarly($loan, '2026-06-01');
+
+$due = Hr::loans()->deductionsForPeriod($employee, $payrollPeriod);
+```
+
+قوانین از `config('hr.loan')`: `max_amount`, `max_installments`, `min_installments`, `max_active_loans` (در approve), `min_months_between_loans` (از `start_date` آخرین وام Active/Completed), `max_percentage_of_salary` (نسبت قسط به **base_salary** جاری).
+
+شماره وام (`loan_number`) در صورت عدم ارسال خودکار تولید می‌شود (`LN-{year}-{seq}`).
+
+### مدل‌ها (پیشرفته)
 
 ```php
 use Karnoweb\Hr\Models\Loan;
 use Karnoweb\Hr\Enums\LoanStatus;
-
-$loan = Loan::create([
-    'employee_id' => $employee->id,
-    'loan_number' => 'LN-1403-001',
-    'type' => 'general',
-    'amount' => 50_000_000,
-    'installments' => 12,
-    'installment_amount' => 4_500_000,
-    'remaining_amount' => 50_000_000,
-    'remaining_installments' => 12,
-    'start_date' => now(),
-    'status' => LoanStatus::Active,
-]);
 ```
 
-اقساط در **LoanPayment** با لینک به **PayrollRecord** (در صورت کسر از حقوق) قابل ثبت است. قوانین حداکثر مبلغ، تعداد اقساط و فاصله بین وام‌ها از `config('hr.loan')` خوانده می‌شوند.
+اقساط در **LoanPayment** با لینک به **PayrollRecord** (در صورت کسر از حقوق) ثبت می‌شوند. ترجیحاً از `Hr::loans()` استفاده کنید تا سقف‌ها، schedule و sync مانده رعایت شود.
 
 ---
 
@@ -607,6 +627,8 @@ Hr::employees()->createForUser($user, [...]);
 Hr::leave()->request($employee, [...]);
 Hr::overtime()->approve($record, $approvedBy);
 Hr::salaries()->assign($employee, ['base_salary' => 50_000_000]);
+Hr::loans()->apply($employee, ['amount' => 10_000_000, 'installments' => 10]);
+Hr::payroll()->openPeriod(1, 2026, 3);
 Hr::documents()->create(DocumentType::Leave, $employee, [...]);
 Hr::documents()->submit($doc);
 Hr::documents()->approve($approval, $comment);

@@ -4,7 +4,19 @@ namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Karnoweb\Hr\Enums\PayrollRecordStatus;
 
+/**
+ * @property int $payroll_period_id
+ * @property int $employee_id
+ * @property float $base_salary
+ * @property float $gross_salary
+ * @property float $net_salary
+ * @property float $payable
+ * @property float $loan_deduction
+ * @property array<string, mixed>|null $calculation_log
+ * @property PayrollRecordStatus $status
+ */
 class PayrollRecord extends BaseModel
 {
     protected $table = 'payroll_records';
@@ -22,6 +34,7 @@ class PayrollRecord extends BaseModel
         'earnings' => 'array',
         'deductions' => 'array',
         'calculation_log' => 'array',
+        'status' => PayrollRecordStatus::class,
         'base_salary' => 'decimal:2',
         'gross_earnings' => 'decimal:2',
         'total_deductions' => 'decimal:2',

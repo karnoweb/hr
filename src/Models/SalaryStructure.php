@@ -3,11 +3,12 @@
 namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * @property-read \Illuminate\Database\Eloquent\Collection<int, SalaryStructureItem> $items
+ * @property-read Collection<int, SalaryStructureItem> $items
  */
 class SalaryStructure extends BaseModel
 {

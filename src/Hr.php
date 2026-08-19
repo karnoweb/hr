@@ -8,8 +8,10 @@ use Karnoweb\Hr\Services\ContractService;
 use Karnoweb\Hr\Services\DocumentService;
 use Karnoweb\Hr\Services\EmployeeService;
 use Karnoweb\Hr\Services\LeaveService;
+use Karnoweb\Hr\Services\LoanService;
 use Karnoweb\Hr\Services\MissionService;
 use Karnoweb\Hr\Services\OvertimeService;
+use Karnoweb\Hr\Services\PayrollService;
 use Karnoweb\Hr\Services\SalaryService;
 use Karnoweb\Hr\Services\ShiftAssignmentService;
 
@@ -62,6 +64,16 @@ class Hr
     public function salaries(): SalaryService
     {
         return $this->app->make(SalaryService::class);
+    }
+
+    public function loans(): LoanService
+    {
+        return $this->app->make(LoanService::class);
+    }
+
+    public function payroll(): PayrollService
+    {
+        return $this->app->make(PayrollService::class);
     }
 
     public function documents(): DocumentService

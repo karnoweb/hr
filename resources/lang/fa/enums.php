@@ -75,6 +75,12 @@ return [
         'paid' => 'پرداخت شده',
         'locked' => 'قفل شده',
     ],
+    'payroll_record_status' => [
+        'draft' => 'پیش‌نویس',
+        'calculated' => 'محاسبه شده',
+        'approved' => 'تأیید شده',
+        'paid' => 'پرداخت شده',
+    ],
     'salary_item_type' => [
         'earning' => 'پرداختی',
         'deduction' => 'کسورات',
@@ -88,6 +94,11 @@ return [
         'pending' => 'در انتظار',
         'active' => 'فعال',
         'completed' => 'تسویه شده',
+        'cancelled' => 'لغو شده',
+    ],
+    'loan_payment_status' => [
+        'pending' => 'در انتظار',
+        'paid' => 'پرداخت شده',
         'cancelled' => 'لغو شده',
     ],
     'approver_type' => [

@@ -23,6 +23,8 @@ use Karnoweb\Hr\Services\LeaveService;
  * @method static \Karnoweb\Hr\Services\MissionService missions() Get the mission service (business trips).
  * @method static \Karnoweb\Hr\Services\OvertimeService overtime() Get the overtime service (sync, approve, caps).
  * @method static \Karnoweb\Hr\Services\SalaryService salaries() Get the salary service (assign, change, calculate).
+ * @method static \Karnoweb\Hr\Services\LoanService loans() Get the loan service (apply, approve, repay, deductions).
+ * @method static \Karnoweb\Hr\Services\PayrollService payroll() Get the payroll service (open period, calculate, approve, mark paid).
  * @method static \Karnoweb\Hr\Services\DocumentService documents() Get the document service (create, submit, approve, reject HR documents).
  *
  * @mixin \Karnoweb\Hr\Hr

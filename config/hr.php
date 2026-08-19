@@ -178,6 +178,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'insurance' => [
+        // NEEDS VERIFICATION (legal/regulatory): rates below seed insurance_rates; verify before production.
         'social_security' => [
             'enabled' => true,
             'employee_rate' => 7,
@@ -198,6 +199,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'tax' => [
+        // NEEDS VERIFICATION (legal/regulatory): exemption/brackets seed tax_brackets (assumed FY 1403).
         'enabled' => true,
         'annual_exemption' => 672000000,
         'brackets' => [
@@ -219,6 +221,7 @@ return [
         'max_amount' => null,
         'max_installments' => 24,
         'min_installments' => 1,
+        // Cooldown measured from start_date of the most recent Active/Completed loan.
         'min_months_between_loans' => 6,
         'max_active_loans' => 2,
         'max_percentage_of_salary' => 50,
@@ -231,7 +234,8 @@ return [
     */
     'payroll' => [
         'closing_day' => 'end_of_month',
-        'minimum_wage' => 53304000,
+        'minimum_wage' => 53304000, // NEEDS VERIFICATION (legal/regulatory)
+        'daily_work_minutes' => 480,
         'payment_day' => 1,
     ],
 

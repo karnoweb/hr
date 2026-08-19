@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [13.0.3] - 2026-08-19
+
+Phases 7–8 of the HR audit (loans + payroll), with insurance/tax calculators from Phase 9.
+
+### Added
+
+- `LoanService` with apply/approve/reject, config-driven limits, installment schedule generation, `recordPayment`, `settleEarly`, and `deductionsForPeriod()` (HR-080–HR-087).
+- `LoanPaymentStatus` enum cast on `LoanPayment`.
+- Unique constraint on `loan_payments(loan_id, installment_number)` (HR-079).
+- `Hr::loans()` facade accessor.
+- Loan domain Feature tests (HR-088).
+- `PayrollService` with openPeriod/calculate/approve/markPaid lifecycle (HR-089 / HR-097–HR-101).
+- `PayrollCalculator` aggregating attendance, leave, overtime, salary, loans (HR-090–HR-096).
+- `InsuranceCalculator` and `TaxCalculator` with versioned `insurance_rates` / `tax_brackets` tables (HR-103–HR-106).
+- `PayrollRecordStatus` enum cast; loan deductions committed only on period approve (HR-098).
+- `Hr::payroll()` facade accessor.
+- Payroll + insurance/tax tests including golden-master pipeline (HR-102 / HR-112).
+
+### Notes
+
+- Use `Hr::loans()` for loan lifecycle; do not create active loans without installment schedules.
+- Loan payroll deductions are applied on `PayrollService::approve()`, not during `calculate()`.
+- Insurance/tax rate values are seeded with **NEEDS VERIFICATION** — verify before production payroll use.
+
 ## [13.0.2] - 2026-08-19
 
 Phases 5–6 of the HR audit implementation: overtime and salary domains.
