@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [13.0.4] - 2026-08-19
+
+Phases 9–10 of the HR audit: insurance/tax completion and documents hardening.
+
+### Added
+
+- `hr:import-rates` command and `RatesImportService` for importing versioned insurance/tax rows from JSON (HR-111).
+- Per-employee exemption fields on `Employee`: `insurance_exempt`, `tax_exempt`, `additional_tax_exemption` (HR-109).
+- Config-gated `dependents_count` tax exemption via `hr.tax.dependents_exemption` (HR-110).
+- Concurrency-safe document numbers via `SequenceGenerator` (HR-113).
+- Transactional `DocumentService::submit()`/`approve()`/`reject()` with document row locking (HR-114–HR-118).
+- Explicit `actorId` on document lifecycle methods; `UnauthorizedApprovalException` when actor ≠ `assigned_to` (HR-119–HR-120).
+- Branch validation on `DocumentService::create()` and `resubmit()` for rejected documents (HR-121–HR-122).
+- Document domain Feature tests (HR-124).
+
+### Notes
+
+- `approve()`/`reject()` require a matching `actorId` when not running in an authenticated web context.
+- Dependents tax exemption remains disabled by default (**NEEDS VERIFICATION**).
+
 ## [13.0.3] - 2026-08-19
 
 Phases 7–8 of the HR audit (loans + payroll), with insurance/tax calculators from Phase 9.

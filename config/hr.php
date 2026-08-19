@@ -202,6 +202,11 @@ return [
         // NEEDS VERIFICATION (legal/regulatory): exemption/brackets seed tax_brackets (assumed FY 1403).
         'enabled' => true,
         'annual_exemption' => 672000000,
+        'dependents_exemption' => [
+            // NEEDS VERIFICATION (legal/regulatory): disabled by default — enable only after legal review.
+            'enabled' => false,
+            'per_dependent_annual' => 0,
+        ],
         'brackets' => [
             ['up_to' => 200000000, 'rate' => 10],
             ['up_to' => 400000000, 'rate' => 15],

@@ -41,14 +41,14 @@ Part of the Karnoweb HR audit. See `HR-AUDIT.md` for the index.
   - Acceptance:
     - a `SalaryItem` marked `is_taxable = false` is excluded from `taxable_income` even if it's an `Earning`; same for `is_insurable`
 
-- [ ] HR-109 — Implement per-employee insurance/tax exemption overrides, if a real requirement is confirmed (P2)
-  - **DEFERRED — NEEDS VERIFICATION** (no invented exemption rules).
+- [x] HR-109 — Implement per-employee insurance/tax exemption overrides, if a real requirement is confirmed (P2)
+  - `insurance_exempt`, `tax_exempt`, `additional_tax_exemption` on `Employee`; wired through payroll calculators.
 
-- [ ] HR-110 — Implement `dependents_count`-aware tax exemption, contingent on legal verification (P2)
-  - **DEFERRED — NEEDS VERIFICATION**.
+- [x] HR-110 — Implement `dependents_count`-aware tax exemption, contingent on legal verification (P2)
+  - Config `hr.tax.dependents_exemption` (disabled by default, NEEDS VERIFICATION).
 
-- [ ] HR-111 — Add a repeatable process to import a new fiscal year's official rates into HR-103/HR-105's tables (P2)
-  - Area: new `src/Console/Commands/ImportRatesCommand.php`, or a documented manual process
+- [x] HR-111 — Add a repeatable process to import a new fiscal year's official rates into HR-103/HR-105's tables (P2)
+  - `hr:import-rates {file}` with `--dry-run` and `--force`; `RatesImportService`.
 
 - [x] HR-112 — Write the Insurance + Tax test suite (P0)
   - Area: `tests/Unit/`

@@ -7,15 +7,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Karnoweb\Hr\Enums\DocumentStatus;
 use Karnoweb\Hr\Enums\DocumentType;
 use Karnoweb\Hr\Exceptions\DocumentLockedException;
+use Karnoweb\Hr\Support\SequenceGenerator;
 
 /**
  * @property DocumentType $type
  * @property DocumentStatus $status
  * @property Carbon $effective_date
+ * @property Carbon|null $expiry_date
+ * @property string $document_number
+ * @property int|null $branch_id
+ * @property int $employee_id
+ * @property string|null $notes
+ * @property array|null $metadata
+ * @property array|null $data
+ * @property int|string|null $approved_by
+ * @property Carbon|null $approved_at
  */
 class HrDocument extends BaseModel
 {
@@ -97,22 +106,17 @@ class HrDocument extends BaseModel
     {
         static::creating(function (HrDocument $document) {
             if (empty($document->document_number)) {
-                $document->document_number = static::generateDocumentNumber($document);
+                $document->document_number = static::generateDocumentNumber($document->type);
             }
         });
     }
 
-    public static function generateDocumentNumber(HrDocument $document): string
+    public static function generateDocumentNumber(DocumentType $type, ?int $year = null): string
     {
-        return DB::transaction(function () use ($document) {
-            $prefix = strtoupper(substr($document->type->value, 0, 3));
-            $year = now()->format('Y');
-            $sequence = static::where('type', $document->type)
-                ->whereYear('created_at', $year)
-                ->lockForUpdate()
-                ->count() + 1;
+        $year ??= (int) now()->format('Y');
+        $prefix = strtoupper(substr($type->value, 0, 3));
+        $sequence = app(SequenceGenerator::class)->nextValue("document:{$type->value}:{$year}");
 
-            return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
-        });
+        return sprintf('%s-%s-%04d', $prefix, $year, $sequence);
     }
 }

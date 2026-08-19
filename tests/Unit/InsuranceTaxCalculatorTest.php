@@ -78,4 +78,95 @@ class InsuranceTaxCalculatorTest extends TestCase
         $this->assertSame(10_000_000.0, $result['taxable_income']);
         $this->assertSame(1_000_000.0, $result['tax']);
     }
+
+    public function test_insurance_exempt_employee_pays_no_contributions(): void
+    {
+        config(['hr.payroll.minimum_wage' => 10_000_000]);
+
+        InsuranceRate::query()->create([
+            'effective_date' => '2025-01-01',
+            'employee_rate' => 7,
+            'employer_rate' => 20,
+            'unemployment_rate' => 3,
+            'ceiling_multiplier' => 7,
+        ]);
+
+        $calculator = new InsuranceCalculator;
+        $result = $calculator->calculate(20_000_000, Carbon::parse('2025-06-01'), insuranceExempt: true);
+
+        $this->assertSame(20_000_000.0, $result['insurable_base']);
+        $this->assertSame(0.0, $result['insurance_employee']);
+        $this->assertSame(0.0, $result['insurance_employer']);
+    }
+
+    public function test_tax_exempt_employee_pays_no_tax(): void
+    {
+        TaxBracket::query()->create([
+            'fiscal_year' => 1404,
+            'effective_date' => '2026-01-01',
+            'annual_exemption' => 0,
+            'brackets' => [
+                ['up_to' => null, 'rate' => 10],
+            ],
+        ]);
+
+        $calculator = new TaxCalculator;
+        $result = $calculator->calculateMonthly(
+            10_000_000,
+            Carbon::parse('2026-03-01'),
+            taxExempt: true,
+        );
+
+        $this->assertSame(0.0, $result['tax']);
+    }
+
+    public function test_additional_tax_exemption_reduces_withheld_tax(): void
+    {
+        TaxBracket::query()->create([
+            'fiscal_year' => 1404,
+            'effective_date' => '2026-01-01',
+            'annual_exemption' => 0,
+            'brackets' => [
+                ['up_to' => null, 'rate' => 10],
+            ],
+        ]);
+
+        $calculator = new TaxCalculator;
+        $without = $calculator->calculateMonthly(10_000_000, Carbon::parse('2026-03-01'));
+        $with = $calculator->calculateMonthly(
+            10_000_000,
+            Carbon::parse('2026-03-01'),
+            additionalAnnualExemption: 60_000_000,
+        );
+
+        $this->assertSame(1_000_000.0, $without['tax']);
+        $this->assertSame(500_000.0, $with['tax']);
+    }
+
+    public function test_dependents_exemption_applies_when_config_enabled(): void
+    {
+        config([
+            'hr.tax.dependents_exemption.enabled' => true,
+            'hr.tax.dependents_exemption.per_dependent_annual' => 12_000_000,
+        ]);
+
+        TaxBracket::query()->create([
+            'fiscal_year' => 1404,
+            'effective_date' => '2026-01-01',
+            'annual_exemption' => 0,
+            'brackets' => [
+                ['up_to' => null, 'rate' => 10],
+            ],
+        ]);
+
+        $calculator = new TaxCalculator;
+        $result = $calculator->calculateMonthly(
+            10_000_000,
+            Carbon::parse('2026-03-01'),
+            dependentsCount: 2,
+        );
+
+        $this->assertSame(24_000_000.0, $result['annual_exemption_applied']);
+        $this->assertSame(800_000.0, $result['tax']);
+    }
 }

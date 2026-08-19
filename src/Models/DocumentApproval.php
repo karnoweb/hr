@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Karnoweb\Hr\Enums\ApprovalStatus;
 
+/**
+ * @property int $id
+ * @property int $hr_document_id
+ * @property int $workflow_step_id
+ * @property int|null $assigned_to
+ * @property ApprovalStatus $status
+ * @property string|null $comment
+ */
 class DocumentApproval extends BaseModel
 {
     protected $table = 'document_approvals';

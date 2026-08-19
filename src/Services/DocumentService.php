@@ -3,10 +3,14 @@
 namespace Karnoweb\Hr\Services;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Karnoweb\Hr\Enums\ApprovalStatus;
 use Karnoweb\Hr\Enums\DocumentStatus;
 use Karnoweb\Hr\Enums\DocumentType;
 use Karnoweb\Hr\Exceptions\DocumentLockedException;
+use Karnoweb\Hr\Exceptions\UnauthorizedApprovalException;
+use Karnoweb\Hr\Exceptions\UnresolvableWorkflowException;
 use Karnoweb\Hr\Models\DocumentApproval;
 use Karnoweb\Hr\Models\DocumentHistory;
 use Karnoweb\Hr\Models\Employee;
@@ -16,6 +20,8 @@ use Karnoweb\Hr\Models\Workflow;
 /**
  * Service for HR documents: create, submit, approve, reject with workflow and history.
  *
+ * `approve()` / `reject()` verify the actor matches `DocumentApproval.assigned_to` —
+ * the package's first in-package authorization check (HR-120).
  *
  * @see HrDocument
  * @see DocumentApproval
@@ -29,18 +35,29 @@ class DocumentService
      * @param  DocumentType  $type  Document type (e.g. employment, transfer).
      * @param  Employee  $employee  Employee the document belongs to.
      * @param  array<string, mixed>  $data  Document payload (stored in data column).
-     * @param  array{branch_id?: int|null, effective_date?: \DateTimeInterface|string, expiry_date?: \DateTimeInterface|string|null, notes?: string|null, created_by?: int|null, metadata?: array|null}  $options  branch_id (defaults to employee branch), effective_date (default now), expiry_date, notes, created_by, metadata.
+     * @param  array{branch_id?: int|null, effective_date?: \DateTimeInterface|string, expiry_date?: \DateTimeInterface|string|null, notes?: string|null, created_by?: int|null, metadata?: array|null, allow_branch_override?: bool}  $options  branch_id (defaults to employee branch), effective_date (default now), expiry_date, notes, created_by, metadata, allow_branch_override.
      * @return HrDocument Created document in Draft status.
      */
     public function create(DocumentType $type, Employee $employee, array $data = [], array $options = []): HrDocument
     {
+        $branchId = $options['branch_id'] ?? $employee->branch_id;
+
+        if (
+            $branchId !== $employee->branch_id
+            && ! ($options['allow_branch_override'] ?? false)
+        ) {
+            throw new InvalidArgumentException(
+                'branch_id must match the employee branch unless allow_branch_override is true.'
+            );
+        }
+
         $effectiveDate = $options['effective_date'] ?? now();
         if (! $effectiveDate instanceof \DateTimeInterface) {
             $effectiveDate = Carbon::parse($effectiveDate);
         }
 
         return HrDocument::create([
-            'branch_id' => $options['branch_id'] ?? $employee->branch_id,
+            'branch_id' => $branchId,
             'employee_id' => $employee->id,
             'type' => $type,
             'effective_date' => $effectiveDate,
@@ -54,24 +71,74 @@ class DocumentService
     }
 
     /**
+     * Clone a rejected document into a new Draft for resubmission (HR-122).
+     *
+     * Rejected documents are terminal for the original row; edits go through a new Draft
+     * linked via metadata.resubmitted_from.
+     */
+    public function resubmit(HrDocument $document, int|string|null $actorId = null): HrDocument
+    {
+        if ($document->status !== DocumentStatus::Rejected) {
+            throw new InvalidArgumentException('Only rejected documents can be resubmitted.');
+        }
+
+        $employee = $document->employee;
+
+        if (! $employee instanceof Employee) {
+            throw new InvalidArgumentException('Document has no associated employee.');
+        }
+
+        return $this->create(
+            $document->type,
+            $employee,
+            $document->data ?? [],
+            [
+                'branch_id' => $document->branch_id,
+                'effective_date' => $document->effective_date,
+                'expiry_date' => $document->expiry_date,
+                'notes' => $document->notes,
+                'created_by' => $this->resolveActorId($actorId),
+                'metadata' => array_merge($document->metadata ?? [], [
+                    'resubmitted_from' => $document->id,
+                ]),
+                'allow_branch_override' => true,
+            ]
+        );
+    }
+
+    /**
      * Submit a draft document: set status to Pending and create workflow approvals.
      *
      * @param  HrDocument  $document  Document to submit (must be editable / draft).
      * @return HrDocument Updated document (fresh from DB).
      *
      * @throws DocumentLockedException When document is locked (e.g. already approved and locked).
+     * @throws UnresolvableWorkflowException When no workflow exists and skip_on_no_approver is false.
      */
-    public function submit(HrDocument $document): HrDocument
+    public function submit(HrDocument $document, int|string|null $actorId = null): HrDocument
     {
         $document->ensureEditable();
+        $actorId = $this->resolveActorId($actorId);
 
         $workflow = Workflow::findForDocument($document);
 
-        $document->update(['status' => DocumentStatus::Pending]);
+        if ($workflow === null) {
+            if (config('hr.workflow.skip_on_no_approver', false)) {
+                return DB::transaction(function () use ($document, $actorId) {
+                    $this->finalizeApproved($document, $actorId, DocumentStatus::Draft);
 
-        $this->recordHistory($document, 'submit', DocumentStatus::Draft, DocumentStatus::Pending, $document->getAttributes());
+                    return $document->fresh();
+                });
+            }
 
-        if ($workflow) {
+            throw new UnresolvableWorkflowException(
+                "No active workflow found for document type [{$document->type->value}]."
+            );
+        }
+
+        return DB::transaction(function () use ($document, $workflow, $actorId) {
+            $document->update(['status' => DocumentStatus::Pending]);
+
             foreach ($workflow->steps as $step) {
                 DocumentApproval::create([
                     'hr_document_id' => $document->id,
@@ -81,9 +148,18 @@ class DocumentService
                     'deadline_at' => $step->timeout_hours ? now()->addHours($step->timeout_hours) : null,
                 ]);
             }
-        }
 
-        return $document->fresh();
+            $this->recordHistory(
+                $document,
+                'submit',
+                DocumentStatus::Draft,
+                DocumentStatus::Pending,
+                $document->getAttributes(),
+                $actorId
+            );
+
+            return $document->fresh();
+        });
     }
 
     /**
@@ -93,29 +169,47 @@ class DocumentService
      * @param  string|null  $comment  Optional comment.
      * @return DocumentApproval Updated approval (fresh from DB).
      *
-     * @throws \InvalidArgumentException When approval is not pending.
+     * @throws InvalidArgumentException When approval or document is not pending.
+     * @throws UnauthorizedApprovalException When actor does not match assigned_to.
      */
-    public function approve(DocumentApproval $approval, ?string $comment = null): DocumentApproval
+    public function approve(DocumentApproval $approval, ?string $comment = null, int|string|null $actorId = null): DocumentApproval
     {
-        if ($approval->status !== ApprovalStatus::Pending) {
-            throw new \InvalidArgumentException('Approval is not pending.');
-        }
+        $actorId = $this->resolveActorId($actorId);
 
-        $approval->update([
-            'status' => ApprovalStatus::Approved,
-            'comment' => $comment,
-            'acted_at' => now(),
-        ]);
+        return DB::transaction(function () use ($approval, $comment, $actorId) {
+            $document = HrDocument::query()
+                ->whereKey($approval->hr_document_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $document = $approval->document;
-        $this->recordHistory($document, 'approve_step', DocumentStatus::Pending, DocumentStatus::Pending, [
-            'workflow_step_id' => $approval->workflow_step_id,
-            'approval_id' => $approval->id,
-        ]);
+            $this->ensureDocumentPending($document);
 
-        $this->advanceDocumentStatusIfComplete($document);
+            $approval = DocumentApproval::query()
+                ->whereKey($approval->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        return $approval->fresh();
+            if ($approval->status !== ApprovalStatus::Pending) {
+                throw new InvalidArgumentException('Approval is not pending.');
+            }
+
+            $this->ensureActorAuthorized($approval, $actorId);
+
+            $approval->update([
+                'status' => ApprovalStatus::Approved,
+                'comment' => $comment,
+                'acted_at' => now(),
+            ]);
+
+            $this->recordHistory($document, 'approve_step', DocumentStatus::Pending, DocumentStatus::Pending, [
+                'workflow_step_id' => $approval->workflow_step_id,
+                'approval_id' => $approval->id,
+            ], $actorId);
+
+            $this->advanceDocumentStatusIfComplete($document, $actorId);
+
+            return $approval->fresh();
+        });
     }
 
     /**
@@ -125,36 +219,62 @@ class DocumentService
      * @param  string|null  $comment  Optional comment.
      * @return DocumentApproval Updated approval (fresh from DB).
      *
-     * @throws \InvalidArgumentException When approval is not pending.
+     * @throws InvalidArgumentException When approval or document is not pending.
+     * @throws UnauthorizedApprovalException When actor does not match assigned_to.
      */
-    public function reject(DocumentApproval $approval, ?string $comment = null): DocumentApproval
+    public function reject(DocumentApproval $approval, ?string $comment = null, int|string|null $actorId = null): DocumentApproval
     {
-        if ($approval->status !== ApprovalStatus::Pending) {
-            throw new \InvalidArgumentException('Approval is not pending.');
-        }
+        $actorId = $this->resolveActorId($actorId);
 
-        $approval->update([
-            'status' => ApprovalStatus::Rejected,
-            'comment' => $comment,
-            'acted_at' => now(),
-        ]);
+        return DB::transaction(function () use ($approval, $comment, $actorId) {
+            $document = HrDocument::query()
+                ->whereKey($approval->hr_document_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $document = $approval->document;
-        $document->update(['status' => DocumentStatus::Rejected]);
-        $this->recordHistory($document, 'reject', DocumentStatus::Pending, DocumentStatus::Rejected, [
-            'workflow_step_id' => $approval->workflow_step_id,
-            'comment' => $comment,
-        ]);
+            $this->ensureDocumentPending($document);
 
-        return $approval->fresh();
+            $approval = DocumentApproval::query()
+                ->whereKey($approval->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($approval->status !== ApprovalStatus::Pending) {
+                throw new InvalidArgumentException('Approval is not pending.');
+            }
+
+            $this->ensureActorAuthorized($approval, $actorId);
+
+            $approval->update([
+                'status' => ApprovalStatus::Rejected,
+                'comment' => $comment,
+                'acted_at' => now(),
+            ]);
+
+            $document->update(['status' => DocumentStatus::Rejected]);
+
+            DocumentApproval::query()
+                ->where('hr_document_id', $document->id)
+                ->where('status', ApprovalStatus::Pending)
+                ->whereKeyNot($approval->id)
+                ->update([
+                    'status' => ApprovalStatus::Skipped,
+                    'acted_at' => now(),
+                ]);
+
+            $this->recordHistory($document, 'reject', DocumentStatus::Pending, DocumentStatus::Rejected, [
+                'workflow_step_id' => $approval->workflow_step_id,
+                'comment' => $comment,
+            ], $actorId);
+
+            return $approval->fresh();
+        });
     }
 
     /**
      * If all approvals are done (no pending), set document to Approved or Rejected and optionally lock.
-     *
-     * @param  HrDocument  $document  Document to advance.
      */
-    private function advanceDocumentStatusIfComplete(HrDocument $document): void
+    private function advanceDocumentStatusIfComplete(HrDocument $document, int|string|null $actorId): void
     {
         $pendingCount = $document->approvals()->where('status', ApprovalStatus::Pending)->count();
 
@@ -163,15 +283,24 @@ class DocumentService
         }
 
         $rejectedCount = $document->approvals()->where('status', ApprovalStatus::Rejected)->count();
+
         if ($rejectedCount > 0) {
             $document->update(['status' => DocumentStatus::Rejected]);
 
             return;
         }
 
+        $this->finalizeApproved($document, $actorId);
+    }
+
+    private function finalizeApproved(
+        HrDocument $document,
+        int|string|null $actorId,
+        DocumentStatus $fromStatus = DocumentStatus::Pending
+    ): void {
         $document->update([
             'status' => DocumentStatus::Approved,
-            'approved_by' => auth()->id(),
+            'approved_by' => $actorId,
             'approved_at' => now(),
         ]);
 
@@ -182,28 +311,52 @@ class DocumentService
             ]);
         }
 
-        $this->recordHistory($document, 'approved', DocumentStatus::Pending, DocumentStatus::Approved, []);
+        $this->recordHistory($document, 'approved', $fromStatus, DocumentStatus::Approved, [], $actorId);
+    }
+
+    private function ensureDocumentPending(HrDocument $document): void
+    {
+        if ($document->status !== DocumentStatus::Pending) {
+            throw new InvalidArgumentException(
+                "Document is not pending (current: {$document->status->value})."
+            );
+        }
+    }
+
+    private function ensureActorAuthorized(DocumentApproval $approval, int|string|null $actorId): void
+    {
+        if ($actorId === null) {
+            throw new UnauthorizedApprovalException(
+                'An actor id is required to approve or reject this step.'
+            );
+        }
+
+        if ((int) $approval->assigned_to !== (int) $actorId) {
+            throw new UnauthorizedApprovalException(
+                'The acting user is not assigned to this approval step.'
+            );
+        }
+    }
+
+    private function resolveActorId(int|string|null $actorId): int|string|null
+    {
+        return $actorId ?? auth()->id();
     }
 
     /**
-     * Record a document history entry for audit.
-     *
-     * @param  HrDocument  $document  Document.
-     * @param  string  $action  Action name (e.g. submit, approve_step, reject, approved).
-     * @param  DocumentStatus|null  $fromStatus  Previous status.
-     * @param  DocumentStatus|null  $toStatus  New status.
-     * @param  array<string, mixed>  $changes  Additional change data.
+     * @param  array<string, mixed>  $changes
      */
     private function recordHistory(
         HrDocument $document,
         string $action,
         ?DocumentStatus $fromStatus,
         ?DocumentStatus $toStatus,
-        array $changes
+        array $changes,
+        int|string|null $actorId = null,
     ): void {
         DocumentHistory::create([
             'hr_document_id' => $document->id,
-            'user_id' => auth()->id(),
+            'user_id' => $actorId ?? auth()->id(),
             'action' => $action,
             'from_status' => $fromStatus?->value,
             'to_status' => $toStatus?->value,

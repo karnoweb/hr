@@ -13,8 +13,8 @@ Small tracker for the HR-AUDIT phase work. Update as each phase lands.
 | 6 Salary | **Done** | current_key migration, SalaryService, SalaryCalculator, expression evaluator, item validation, Hr::salaries(), 128 tests |
 | 7 Loans | **Done** | LoanService, LoanPaymentStatus, installment unique, limits/schedule/repayment, Hr::loans(), 138 tests |
 | 8 Payroll | **Done** | PayrollService, PayrollCalculator, Insurance/Tax calculators, golden-master test, Hr::payroll(), 148 tests |
-| 9 Insurance + Tax | **Partial** | Versioned rates/brackets + calculators done (HR-103–108/112); import command + exemption overrides deferred |
-| 10 Documents | Not started | |
+| 9 Insurance + Tax | **Done** | Versioned rates, calculators, import command, employee exemptions, dependents config |
+| 10 Documents | **Done** | Concurrency-safe numbering, transactional submit/approve/reject, authorization, resubmit |
 | 11 Workflow | Not started | |
 | 12 Accounting boundary | Not started | |
 | 13 Security / Performance | Not started | |

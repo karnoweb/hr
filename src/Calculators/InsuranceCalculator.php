@@ -23,15 +23,15 @@ class InsuranceCalculator
      *     insurance_unemployment: float
      * }
      */
-    public function calculate(float $insurableBase, Carbon $asOfDate): array
+    public function calculate(float $insurableBase, Carbon $asOfDate, bool $insuranceExempt = false): array
     {
-        if (! config('hr.insurance.social_security.enabled', true)) {
+        if ($insuranceExempt || ! config('hr.insurance.social_security.enabled', true)) {
             return [
                 'insurable_base' => round($insurableBase, 2),
-                'capped_base' => 0,
-                'insurance_employee' => 0,
-                'insurance_employer' => 0,
-                'insurance_unemployment' => 0,
+                'capped_base' => 0.0,
+                'insurance_employee' => 0.0,
+                'insurance_employer' => 0.0,
+                'insurance_unemployment' => 0.0,
             ];
         }
 

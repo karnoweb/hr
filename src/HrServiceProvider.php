@@ -8,6 +8,7 @@ use Karnoweb\Hr\Calculators\InsuranceCalculator;
 use Karnoweb\Hr\Calculators\TaxCalculator;
 use Karnoweb\Hr\Console\Commands\AutoClockOutCommand;
 use Karnoweb\Hr\Console\Commands\CarryOverLeaveBalancesCommand;
+use Karnoweb\Hr\Console\Commands\ImportRatesCommand;
 use Karnoweb\Hr\Services\AttendanceService;
 use Karnoweb\Hr\Services\ContractService;
 use Karnoweb\Hr\Services\DocumentService;
@@ -19,6 +20,7 @@ use Karnoweb\Hr\Services\MissionService;
 use Karnoweb\Hr\Services\OvertimeService;
 use Karnoweb\Hr\Services\PayrollCalculator;
 use Karnoweb\Hr\Services\PayrollService;
+use Karnoweb\Hr\Services\RatesImportService;
 use Karnoweb\Hr\Services\SalaryCalculator;
 use Karnoweb\Hr\Services\SalaryService;
 use Karnoweb\Hr\Services\ShiftAssignmentService;
@@ -56,6 +58,7 @@ class HrServiceProvider extends ServiceProvider
         $this->app->singleton(TaxCalculator::class);
         $this->app->singleton(PayrollCalculator::class);
         $this->app->singleton(PayrollService::class);
+        $this->app->singleton(RatesImportService::class);
         $this->app->singleton(MissionService::class);
         $this->app->singleton(EmployeeService::class);
         $this->app->singleton(ContractService::class);
@@ -78,6 +81,7 @@ class HrServiceProvider extends ServiceProvider
             $this->commands([
                 AutoClockOutCommand::class,
                 CarryOverLeaveBalancesCommand::class,
+                ImportRatesCommand::class,
             ]);
         }
 

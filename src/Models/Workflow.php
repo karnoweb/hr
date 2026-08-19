@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int|null $branch_id
+ */
 class Workflow extends BaseModel
 {
     use SoftDeletes;
@@ -22,6 +25,7 @@ class Workflow extends BaseModel
         'conditions' => 'array',
     ];
 
+    /** @return HasMany<WorkflowStep, $this> */
     public function steps(): HasMany
     {
         return $this->hasMany(WorkflowStep::class)->orderBy('order');

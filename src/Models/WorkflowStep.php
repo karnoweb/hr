@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Karnoweb\Hr\Enums\ApproverType;
 
+/**
+ * @property int $id
+ * @property int|null $approver_id
+ * @property int|null $timeout_hours
+ */
 class WorkflowStep extends BaseModel
 {
     protected $table = 'workflow_steps';

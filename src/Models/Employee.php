@@ -22,6 +22,10 @@ use Karnoweb\Hr\Exceptions\InvalidEmployeeLifecycleException;
  * @property EmployeeStatus $status
  * @property string|null $national_id
  * @property bool $allowLifecycleStatusChange Internal flag set by EmployeeService lifecycle methods.
+ * @property bool $insurance_exempt
+ * @property bool $tax_exempt
+ * @property float|null $additional_tax_exemption
+ * @property int $dependents_count
  */
 class Employee extends BaseModel
 {
@@ -39,6 +43,7 @@ class Employee extends BaseModel
     protected $fillable = [
         'employable_type', 'employable_id', 'branch_id', 'employee_code', 'hire_date', 'termination_date',
         'status', 'national_id', 'insurance_number', 'birth_date', 'gender', 'marital_status', 'dependents_count',
+        'insurance_exempt', 'tax_exempt', 'additional_tax_exemption',
         'education_level', 'military_status', 'bank_name', 'bank_account', 'bank_sheba', 'address', 'phone',
         'emergency_contact', 'emergency_phone', 'metadata',
     ];
@@ -50,6 +55,9 @@ class Employee extends BaseModel
         'status' => EmployeeStatus::class,
         'metadata' => 'array',
         'dependents_count' => 'integer',
+        'insurance_exempt' => 'boolean',
+        'tax_exempt' => 'boolean',
+        'additional_tax_exemption' => 'decimal:2',
     ];
 
     protected static function booted(): void

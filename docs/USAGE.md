@@ -502,8 +502,9 @@ if ($document->canEdit()) {
 
 ```php
 Hr::documents()->submit($document);           // وضعیت به pending و رکوردهای DocumentApproval ساخته می‌شوند
-Hr::documents()->approve($approval, $comment); // تأیید مرحله
-Hr::documents()->reject($approval, $comment); // رد سند
+Hr::documents()->approve($approval, $comment, actorId: $userId); // تأیید مرحله — actorId الزامی اگر auth ندارید
+Hr::documents()->reject($approval, $comment, actorId: $userId);  // رد سند
+Hr::documents()->resubmit($rejectedDocument); // سند ردشده → Draft جدید (metadata.resubmitted_from)
 ```
 
 پس از ارسال، بر اساس Workflow تعریف‌شده برای آن `document_type`، رکوردهای **DocumentApproval** برای هر مرحله ایجاد می‌شود. وقتی همه مراحل تأیید شوند، وضعیت سند به `approved` و در صورت تنظیم، پس از `lock_delay_hours` به `locked` تغییر می‌کند. برای کنترل دستی از مدل‌های `Workflow`, `WorkflowStep`, `DocumentApproval` و `DocumentHistory` استفاده کنید.
@@ -570,6 +571,39 @@ Hr::payroll()->markPaid($period);
 `PayrollCalculator` حضور، مرخصی، اضافه‌کار تأییدشده، حقوق جاری، بیمه/مالات (از جداول نسخه‌دار `insurance_rates` / `tax_brackets`) و اقساط وام سررسیدشده را تجمیع می‌کند. **کسر وام** فقط در `approve()` روی `LoanPayment` ثبت می‌شود، نه در `calculate()`.
 
 نرخ بیمه و پلکان مالیات از config فقط برای seed اولیه migration است — مقادیر NEEDS VERIFICATION هستند.
+
+برای سال مالی جدید، نرخ‌ها را با JSON وارد کنید:
+
+```bash
+php artisan hr:import-rates /path/to/rates.json
+php artisan hr:import-rates /path/to/rates.json --dry-run
+php artisan hr:import-rates /path/to/rates.json --force
+```
+
+نمونه JSON:
+
+```json
+{
+  "insurance": {
+    "effective_date": "2027-03-21",
+    "employee_rate": 7,
+    "employer_rate": 20,
+    "unemployment_rate": 3,
+    "ceiling_multiplier": 7
+  },
+  "tax": {
+    "fiscal_year": 1406,
+    "effective_date": "2027-03-21",
+    "annual_exemption": 672000000,
+    "brackets": [
+      {"up_to": 200000000, "rate": 10},
+      {"up_to": null, "rate": 20}
+    ]
+  }
+}
+```
+
+معافیت per-employee روی `Employee`: `insurance_exempt`, `tax_exempt`, `additional_tax_exemption`. معافیت وابستگان از `dependents_count` فقط وقتی `config('hr.tax.dependents_exemption.enabled')` فعال باشد (NEEDS VERIFICATION).
 
 ---
 

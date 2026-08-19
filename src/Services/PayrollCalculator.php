@@ -71,8 +71,18 @@ class PayrollCalculator
             2
         );
 
-        $insurance = $this->insurance->calculate($insurableBase, $asOfDate);
-        $taxResult = $this->tax->calculateMonthly($taxableBase, $asOfDate);
+        $insurance = $this->insurance->calculate(
+            $insurableBase,
+            $asOfDate,
+            (bool) $employee->insurance_exempt,
+        );
+        $taxResult = $this->tax->calculateMonthly(
+            $taxableBase,
+            $asOfDate,
+            (int) ($employee->dependents_count ?? 0),
+            (float) ($employee->additional_tax_exemption ?? 0),
+            (bool) $employee->tax_exempt,
+        );
 
         $loanPayments = $this->loans->deductionsForPeriod($employee, $period);
         $loanDeduction = round((float) $loanPayments->sum('amount'), 2);

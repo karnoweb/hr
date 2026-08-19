@@ -7,26 +7,38 @@ use InvalidArgumentException;
 use Karnoweb\Hr\Models\TaxBracket;
 
 /**
- * Progressive income tax (HR-106 / HR-108).
+ * Progressive income tax (HR-106 / HR-108 / HR-109 / HR-110).
  *
  * Policy: **monthly annualization** — monthly taxable income × 12 is run through
  * annual brackets and exemption, then the resulting annual tax ÷ 12 is withheld
  * this month. Year-to-date reconciliation is deferred (NEEDS VERIFICATION).
- *
- * Per-employee exemption overrides and dependents_count adjustments are deferred (HR-109/HR-110).
  */
 class TaxCalculator
 {
     /**
-     * @return array{taxable_income: float, tax: float, annualized_taxable: float}
+     * @return array{
+     *     taxable_income: float,
+     *     tax: float,
+     *     annualized_taxable: float,
+     *     annual_exemption_applied: float
+     * }
      */
-    public function calculateMonthly(float $monthlyTaxable, Carbon $asOfDate): array
-    {
-        if (! config('hr.tax.enabled', true)) {
+    public function calculateMonthly(
+        float $monthlyTaxable,
+        Carbon $asOfDate,
+        int $dependentsCount = 0,
+        float $additionalAnnualExemption = 0,
+        bool $taxExempt = false,
+    ): array {
+        $monthlyTaxable = max(0, $monthlyTaxable);
+        $annualTaxable = $monthlyTaxable * 12;
+
+        if ($taxExempt || ! config('hr.tax.enabled', true)) {
             return [
-                'taxable_income' => round(max(0, $monthlyTaxable), 2),
-                'tax' => 0,
-                'annualized_taxable' => round(max(0, $monthlyTaxable) * 12, 2),
+                'taxable_income' => round($monthlyTaxable, 2),
+                'tax' => 0.0,
+                'annualized_taxable' => round($annualTaxable, 2),
+                'annual_exemption_applied' => 0.0,
             ];
         }
 
@@ -36,9 +48,10 @@ class TaxCalculator
             throw new InvalidArgumentException('No tax bracket configuration for the payroll date.');
         }
 
-        $monthlyTaxable = max(0, $monthlyTaxable);
-        $annualTaxable = $monthlyTaxable * 12;
-        $annualExemption = (float) $bracketSet->annual_exemption;
+        $annualExemption = (float) $bracketSet->annual_exemption
+            + max(0, $additionalAnnualExemption)
+            + $this->dependentsExemption($dependentsCount);
+
         $taxableAfterExemption = max(0, $annualTaxable - $annualExemption);
         $annualTax = $this->applyBrackets($taxableAfterExemption, $bracketSet->brackets);
 
@@ -46,7 +59,17 @@ class TaxCalculator
             'taxable_income' => round($monthlyTaxable, 2),
             'tax' => round($annualTax / 12, 2),
             'annualized_taxable' => round($annualTaxable, 2),
+            'annual_exemption_applied' => round($annualExemption, 2),
         ];
+    }
+
+    protected function dependentsExemption(int $dependentsCount): float
+    {
+        if ($dependentsCount <= 0 || ! config('hr.tax.dependents_exemption.enabled', false)) {
+            return 0;
+        }
+
+        return $dependentsCount * (float) config('hr.tax.dependents_exemption.per_dependent_annual', 0);
     }
 
     /**
