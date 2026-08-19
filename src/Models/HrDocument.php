@@ -6,11 +6,17 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Karnoweb\Hr\Enums\DocumentStatus;
 use Karnoweb\Hr\Enums\DocumentType;
 use Karnoweb\Hr\Exceptions\DocumentLockedException;
 
+/**
+ * @property DocumentType $type
+ * @property DocumentStatus $status
+ * @property Carbon $effective_date
+ */
 class HrDocument extends BaseModel
 {
     use SoftDeletes;

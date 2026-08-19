@@ -5,13 +5,26 @@ namespace Karnoweb\Hr\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $employee_id
+ * @property int|null $salary_structure_id
+ * @property float $base_salary
+ * @property Carbon $effective_date
+ * @property Carbon|null $end_date
+ * @property int|null $hr_document_id
+ * @property bool $is_current
+ * @property int|null $current_key Set to employee_id for the single current row; null otherwise.
+ * @property-read SalaryStructure|null $salaryStructure
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeSalaryItem> $items
+ */
 class EmployeeSalary extends BaseModel
 {
     protected $table = 'employee_salaries';
 
     protected $fillable = [
-        'employee_id', 'salary_structure_id', 'base_salary', 'effective_date', 'end_date', 'hr_document_id', 'is_current',
+        'employee_id', 'salary_structure_id', 'base_salary', 'effective_date', 'end_date', 'hr_document_id', 'is_current', 'current_key',
     ];
 
     protected $casts = [

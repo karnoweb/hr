@@ -160,6 +160,26 @@ $mission = Hr::missions()->request($employee, [
 Hr::missions()->approve($mission);
 ```
 
+### اضافه‌کار
+
+با `clockOut`، دقایق بعد از پایان شیفت در ستون‌های `overtime_*` حضور ذخیره می‌شوند و در صورت عبور از `min_minutes`، رکورد `OvertimeRecord` ساخته می‌شود.
+
+```php
+// ورود/خروج — sync خودکار overtime (پیش‌فرض)
+Hr::attendance()->clockOut($employee, $at, ['hr_document_id' => $preApprovalDocId]);
+
+Hr::overtime()->approve($record, $approvedByUserId);
+Hr::overtime()->reject($record, 'دلیل رد');
+
+// تجمیع برای حقوق (فاز ۸)
+$totals = Hr::overtime()->approvedMinutesForPeriod($employee, $payrollPeriod);
+// ['regular' => 120, 'night' => 45, 'holiday' => 0]
+```
+
+`config('hr.overtime')`: `min_minutes` (آستانه ثبت)، `monthly_cap` (دقیقه — رد approve اگر از سقف ماه بگذرد)، `requires_pre_approval` (نیاز به `HrDocument` از نوع `overtime_approval` تأییدشده با `effective_date <= تاریخ کار`)، `night_start` / `night_end` (پنجره شب).
+
+نرخ ضریب (`OvertimeType::rate()`) از `config('hr.overtime.rates')` خوانده می‌شود.
+
 ### اسناد و گردش کار
 
 ```php
@@ -413,9 +433,19 @@ $workingDays = $calculator->count($start, $end, $branchId);
 
 ### رکورد اضافه‌کار (OvertimeRecord)
 
+ترجیحاً از `Hr::overtime()` استفاده کنید؛ رکوردها معمولاً از `AttendanceService::clockOut()` sync می‌شوند:
+
+```php
+Hr::attendance()->clockOut($employee, '2026-03-02 17:30:00');
+Hr::overtime()->approve($record);
+```
+
+برای ایجاد دستی (غیرمعمول):
+
 ```php
 use Karnoweb\Hr\Models\OvertimeRecord;
 use Karnoweb\Hr\Enums\OvertimeType;
+use Karnoweb\Hr\Enums\OvertimeStatus;
 
 OvertimeRecord::create([
     'employee_id' => $employee->id,
@@ -423,7 +453,7 @@ OvertimeRecord::create([
     'calculated_minutes' => 60,
     'approved_minutes' => 60,
     'type' => OvertimeType::Regular,
-    'status' => 'approved',
+    'status' => OvertimeStatus::Approved,
 ]);
 ```
 
@@ -503,22 +533,29 @@ SalaryItem::create([
 
 ### ساختار حقوق (SalaryStructure) و حقوق کارمند (EmployeeSalary)
 
-یک **SalaryStructure** مجموعه‌ای از SalaryItemها با مقادیر پیش‌فرض است. برای هر کارمند یک یا چند **EmployeeSalary** با `effective_date` و `end_date` ثبت می‌کنید و در صورت نیاز **EmployeeSalaryItem** برای مقادیر خاص هر آیتم.
+یک **SalaryStructure** مجموعه‌ای از SalaryItemها با مقادیر پیش‌فرض است. برای تخصیص و تغییر حقوق از `Hr::salaries()` استفاده کنید:
 
 ```php
-use Karnoweb\Hr\Models\EmployeeSalary;
-use Karnoweb\Hr\Models\SalaryStructure;
-
-$structure = SalaryStructure::where('code', 'DEFAULT')->first();
-
-EmployeeSalary::create([
-    'employee_id' => $employee->id,
-    'salary_structure_id' => $structure->id,
+Hr::salaries()->assign($employee, [
     'base_salary' => 50_000_000,
-    'effective_date' => now(),
-    'is_current' => true,
+    'salary_structure_id' => $structure->id,
+    'effective_date' => '2026-01-01',
+    'items' => [
+        ['code' => 'HOUSING', 'value' => 3_000_000],
+    ],
 ]);
+
+Hr::salaries()->changeSalary($employee, [
+    'base_salary' => 55_000_000,
+    'effective_date' => '2026-04-01',
+    'hr_document_id' => $salaryChangeDocumentId,
+]);
+
+$result = Hr::salaries()->calculate($employee->currentSalary);
+// base_salary, items[], totals[taxable_amount, insurable_amount, ...]
 ```
+
+هر کارمند **حداکثر یک حقوق جاری** دارد (`current_key` در DB). `CalculationType::Fixed` / `Percentage` / `Formula` در `SalaryCalculator` ارزیابی می‌شوند؛ `percentage_of` باید به `SalaryItem.code` موجود اشاره کند.
 
 ### دوره حقوق (PayrollPeriod) و سطر حقوق (PayrollRecord)
 
@@ -568,6 +605,8 @@ Hr::config('overtime.rates.regular');            // 1.4
 // زیر-سرویس‌ها برای عملیات
 Hr::employees()->createForUser($user, [...]);
 Hr::leave()->request($employee, [...]);
+Hr::overtime()->approve($record, $approvedBy);
+Hr::salaries()->assign($employee, ['base_salary' => 50_000_000]);
 Hr::documents()->create(DocumentType::Leave, $employee, [...]);
 Hr::documents()->submit($doc);
 Hr::documents()->approve($approval, $comment);

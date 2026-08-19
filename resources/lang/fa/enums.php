@@ -61,6 +61,12 @@ return [
         'holiday' => 'تعطیل',
         'night' => 'شب',
     ],
+    'overtime_status' => [
+        'pending' => 'در انتظار',
+        'approved' => 'تأیید شده',
+        'rejected' => 'رد شده',
+        'cancelled' => 'لغو شده',
+    ],
     'payroll_period_status' => [
         'draft' => 'پیش‌نویس',
         'calculating' => 'در حال محاسبه',

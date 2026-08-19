@@ -13,8 +13,14 @@ use Karnoweb\Hr\Services\EmployeeService;
 use Karnoweb\Hr\Services\LeaveBalanceService;
 use Karnoweb\Hr\Services\LeaveService;
 use Karnoweb\Hr\Services\MissionService;
+use Karnoweb\Hr\Services\OvertimeService;
+use Karnoweb\Hr\Services\SalaryCalculator;
+use Karnoweb\Hr\Services\SalaryService;
 use Karnoweb\Hr\Services\ShiftAssignmentService;
 use Karnoweb\Hr\Services\ShiftResolver;
+use Karnoweb\Hr\Support\OvertimeMinuteClassifier;
+use Karnoweb\Hr\Support\SalaryExpressionEvaluator;
+use Karnoweb\Hr\Support\SalaryItemValidator;
 use Karnoweb\Hr\Support\SequenceGenerator;
 use Karnoweb\Hr\Support\WorkingDayCalculator;
 
@@ -34,6 +40,12 @@ class HrServiceProvider extends ServiceProvider
         $this->app->singleton(AttendanceService::class);
         $this->app->singleton(LeaveBalanceService::class);
         $this->app->singleton(LeaveService::class);
+        $this->app->singleton(OvertimeMinuteClassifier::class);
+        $this->app->singleton(OvertimeService::class);
+        $this->app->singleton(SalaryExpressionEvaluator::class);
+        $this->app->singleton(SalaryItemValidator::class);
+        $this->app->singleton(SalaryCalculator::class);
+        $this->app->singleton(SalaryService::class);
         $this->app->singleton(MissionService::class);
         $this->app->singleton(EmployeeService::class);
         $this->app->singleton(ContractService::class);

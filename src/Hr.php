@@ -9,6 +9,8 @@ use Karnoweb\Hr\Services\DocumentService;
 use Karnoweb\Hr\Services\EmployeeService;
 use Karnoweb\Hr\Services\LeaveService;
 use Karnoweb\Hr\Services\MissionService;
+use Karnoweb\Hr\Services\OvertimeService;
+use Karnoweb\Hr\Services\SalaryService;
 use Karnoweb\Hr\Services\ShiftAssignmentService;
 
 class Hr
@@ -50,6 +52,16 @@ class Hr
     public function missions(): MissionService
     {
         return $this->app->make(MissionService::class);
+    }
+
+    public function overtime(): OvertimeService
+    {
+        return $this->app->make(OvertimeService::class);
+    }
+
+    public function salaries(): SalaryService
+    {
+        return $this->app->make(SalaryService::class);
     }
 
     public function documents(): DocumentService

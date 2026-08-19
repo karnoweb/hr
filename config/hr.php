@@ -150,7 +150,7 @@ return [
         ],
         'night_start' => '22:00',
         'night_end' => '06:00',
-        'monthly_cap' => 120,
+        'monthly_cap' => 120, // minutes per employee per calendar month
         'requires_pre_approval' => false,
         'min_minutes' => 30,
     ],

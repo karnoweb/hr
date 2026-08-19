@@ -4,6 +4,12 @@ namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $salary_structure_id
+ * @property int $salary_item_id
+ * @property float|string $value
+ * @property-read SalaryItem|null $salaryItem
+ */
 class SalaryStructureItem extends BaseModel
 {
     protected $table = 'salary_structure_items';

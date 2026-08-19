@@ -6,10 +6,30 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Karnoweb\Hr\Enums\CalculationType;
 use Karnoweb\Hr\Enums\SalaryItemType;
+use Karnoweb\Hr\Support\SalaryItemValidator;
 
+/**
+ * @property int|null $branch_id
+ * @property string $code
+ * @property string $name
+ * @property SalaryItemType $type
+ * @property CalculationType $calculation_type
+ * @property float|string|null $default_value
+ * @property string|null $formula
+ * @property string|null $percentage_of
+ * @property bool $is_taxable
+ * @property bool $is_insurable
+ */
 class SalaryItem extends BaseModel
 {
     use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::saving(function (SalaryItem $item): void {
+            app(SalaryItemValidator::class)->validate($item);
+        });
+    }
 
     protected $table = 'salary_items';
 

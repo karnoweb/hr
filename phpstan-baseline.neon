@@ -7,25 +7,7 @@ parameters:
 			path: src/Models/HrDocument.php
 
 		-
-			message: '#^Access to an undefined property Karnoweb\\Hr\\Models\\HrDocument\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 2
-			path: src/Models/HrDocument.php
-
-		-
-			message: '#^Access to an undefined property Karnoweb\\Hr\\Models\\HrDocument\:\:\$type\.$#'
-			identifier: property.notFound
-			count: 3
-			path: src/Models/HrDocument.php
-
-		-
 			message: '#^Access to an undefined property Karnoweb\\Hr\\Models\\HrDocument\:\:\$branch_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/Models/Workflow.php
-
-		-
-			message: '#^Access to an undefined property Karnoweb\\Hr\\Models\\HrDocument\:\:\$type\.$#'
 			identifier: property.notFound
 			count: 1
 			path: src/Models/Workflow.php

@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [13.0.2] - 2026-08-19
+
+Phases 5–6 of the HR audit implementation: overtime and salary domains.
+
+### Added
+
+- `OvertimeService` with attendance sync, approve/reject lifecycle, night/holiday classification (`OvertimeMinuteClassifier`), `min_minutes`, `monthly_cap`, and `requires_pre_approval` gating (HR-061–HR-067).
+- `OvertimeStatus` enum cast on `OvertimeRecord` (HR-065).
+- `Hr::overtime()` facade accessor.
+- Overtime unit/feature tests including `OvertimeType::rate()` (HR-068).
+- `SalaryService` with assign/changeSalary lifecycle and `current_key` DB invariant (HR-069 / HR-070).
+- `SalaryCalculator` for Fixed/Percentage/Formula items with taxable/insurable totals (HR-071–HR-073 / HR-076).
+- Safe `SalaryExpressionEvaluator` (no eval) and `SalaryItemValidator` for percentage_of/formula rules (HR-072 / HR-073).
+- `Hr::salaries()` facade accessor (HR-075).
+- Salary domain tests including historical preservation (HR-074 / HR-078).
+
+### Changed
+
+- `AttendanceService::clockOut()` now computes overtime buckets and syncs `OvertimeRecord` rows by default.
+- `EmployeeService::terminate()` clears `employee_salaries.current_key` when closing current salary.
+
+### Notes
+
+- Do not create current salaries via `EmployeeSalary::create()` without managing `current_key`; use `Hr::salaries()->assign()` / `changeSalary()`.
+- `config('hr.overtime.monthly_cap')` is in **minutes**; approving overtime that would exceed the cap is rejected (not silently truncated).
+
 ## [13.0.1] - 2026-08-19
 
 Phases 0–4 of the HR audit implementation: foundation, employee domain, organization/contracts, attendance/shifts, and leave/mission.

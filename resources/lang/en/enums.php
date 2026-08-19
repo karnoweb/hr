@@ -61,6 +61,12 @@ return [
         'holiday' => 'Holiday',
         'night' => 'Night',
     ],
+    'overtime_status' => [
+        'pending' => 'Pending',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+        'cancelled' => 'Cancelled',
+    ],
     'payroll_period_status' => [
         'draft' => 'Draft',
         'calculating' => 'Calculating',

@@ -12,6 +12,7 @@ use Karnoweb\Hr\Exceptions\HrException;
 use Karnoweb\Hr\Models\AttendanceRecord;
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\Shift;
+use Karnoweb\Hr\Support\OvertimeMinuteClassifier;
 use Karnoweb\Hr\Support\WorkingDayCalculator;
 
 /**
@@ -25,6 +26,7 @@ class AttendanceService
     public function __construct(
         protected ShiftResolver $shiftResolver,
         protected WorkingDayCalculator $workingDayCalculator,
+        protected OvertimeMinuteClassifier $overtimeClassifier,
     ) {}
 
     /**
@@ -139,7 +141,8 @@ class AttendanceService
             Carbon::parse($record->clock_in),
             $clockOut,
             Carbon::parse($record->date),
-            $shift
+            $shift,
+            $employee->branch_id
         );
 
         $record->update([
@@ -148,12 +151,24 @@ class AttendanceService
             'work_minutes' => $metrics['work_minutes'],
             'late_minutes' => $metrics['late_minutes'],
             'early_leave_minutes' => $metrics['early_leave_minutes'],
+            'overtime_minutes' => $metrics['overtime_minutes'],
+            'overtime_night_minutes' => $metrics['overtime_night_minutes'],
+            'overtime_holiday_minutes' => $metrics['overtime_holiday_minutes'],
             'status' => AttendanceStatus::Present,
             'source' => $options['source'] ?? $record->source,
             'notes' => $options['notes'] ?? $record->notes,
         ]);
 
-        return $record->refresh();
+        $record = $record->refresh();
+
+        if ($metrics['overtime_total'] > 0 && ($options['sync_overtime'] ?? true)) {
+            app(OvertimeService::class)->syncFromAttendance(
+                $record,
+                isset($options['hr_document_id']) ? (int) $options['hr_document_id'] : null
+            );
+        }
+
+        return $record;
     }
 
     /**
@@ -271,9 +286,17 @@ class AttendanceService
     }
 
     /**
-     * @return array{work_minutes: int, late_minutes: int, early_leave_minutes: int}
+     * @return array{
+     *     work_minutes: int,
+     *     late_minutes: int,
+     *     early_leave_minutes: int,
+     *     overtime_minutes: int,
+     *     overtime_night_minutes: int,
+     *     overtime_holiday_minutes: int,
+     *     overtime_total: int
+     * }
      */
-    public function computeMetrics(Carbon $clockIn, Carbon $clockOut, Carbon $attendanceDate, ?Shift $shift): array
+    public function computeMetrics(Carbon $clockIn, Carbon $clockOut, Carbon $attendanceDate, ?Shift $shift, ?int $branchId = null): array
     {
         $workMinutes = max(0, (int) $clockIn->diffInMinutes($clockOut));
 
@@ -282,6 +305,10 @@ class AttendanceService
                 'work_minutes' => $workMinutes,
                 'late_minutes' => 0,
                 'early_leave_minutes' => 0,
+                'overtime_minutes' => 0,
+                'overtime_night_minutes' => 0,
+                'overtime_holiday_minutes' => 0,
+                'overtime_total' => 0,
             ];
         }
 
@@ -309,10 +336,21 @@ class AttendanceService
             $workMinutes = max(0, $workMinutes - $breakMinutes);
         }
 
+        $overtime = ['regular' => 0, 'night' => 0, 'holiday' => 0, 'total' => 0];
+
+        if ($clockOut->gt($shiftEnd)) {
+            $isHoliday = $this->workingDayCalculator->isHoliday($attendanceDate, $branchId);
+            $overtime = $this->overtimeClassifier->classify($shiftEnd, $clockOut, $attendanceDate, $isHoliday);
+        }
+
         return [
             'work_minutes' => $workMinutes,
             'late_minutes' => $lateMinutes,
             'early_leave_minutes' => $earlyLeaveMinutes,
+            'overtime_minutes' => $overtime['regular'],
+            'overtime_night_minutes' => $overtime['night'],
+            'overtime_holiday_minutes' => $overtime['holiday'],
+            'overtime_total' => $overtime['total'],
         ];
     }
 

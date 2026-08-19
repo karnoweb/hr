@@ -21,6 +21,8 @@ use Karnoweb\Hr\Services\LeaveService;
  * @method static \Karnoweb\Hr\Services\ShiftAssignmentService shiftAssignments() Assign fixed shifts or rotating patterns.
  * @method static \Karnoweb\Hr\Services\LeaveService leave() Get the leave service (request leave, check balance).
  * @method static \Karnoweb\Hr\Services\MissionService missions() Get the mission service (business trips).
+ * @method static \Karnoweb\Hr\Services\OvertimeService overtime() Get the overtime service (sync, approve, caps).
+ * @method static \Karnoweb\Hr\Services\SalaryService salaries() Get the salary service (assign, change, calculate).
  * @method static \Karnoweb\Hr\Services\DocumentService documents() Get the document service (create, submit, approve, reject HR documents).
  *
  * @mixin \Karnoweb\Hr\Hr

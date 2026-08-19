@@ -4,8 +4,13 @@ namespace Karnoweb\Hr\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Karnoweb\Hr\Enums\PayrollPeriodStatus;
 
+/**
+ * @property Carbon $start_date
+ * @property Carbon $end_date
+ */
 class PayrollPeriod extends BaseModel
 {
     protected $table = 'payroll_periods';

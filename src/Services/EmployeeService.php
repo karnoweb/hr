@@ -306,6 +306,7 @@ class EmployeeService
                 ->update([
                     'is_current' => false,
                     'end_date' => $date->toDateString(),
+                    'current_key' => null,
                     'updated_at' => now(),
                 ]);
 

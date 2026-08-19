@@ -16,6 +16,9 @@ use Karnoweb\Hr\Enums\AttendanceStatus;
  * @property int $work_minutes
  * @property int $late_minutes
  * @property int $early_leave_minutes
+ * @property int $overtime_minutes
+ * @property int $overtime_night_minutes
+ * @property int $overtime_holiday_minutes
  * @property AttendanceStatus $status
  * @property string $source
  * @property string|null $notes
