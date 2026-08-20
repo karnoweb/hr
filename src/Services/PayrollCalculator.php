@@ -3,6 +3,7 @@
 namespace Karnoweb\Hr\Services;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use InvalidArgumentException;
 use Karnoweb\Hr\Calculators\InsuranceCalculator;
 use Karnoweb\Hr\Calculators\TaxCalculator;
@@ -15,6 +16,7 @@ use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\LeaveRequest;
 use Karnoweb\Hr\Models\MissionRequest;
 use Karnoweb\Hr\Models\PayrollPeriod;
+use Karnoweb\Hr\Support\PayrollBatchContext;
 
 /**
  * Per-employee payroll aggregation (HR-090–HR-096).
@@ -34,19 +36,30 @@ class PayrollCalculator
     ) {}
 
     /**
+     * @param  Collection<int, Employee>  $employees
+     */
+    public function preloadBatch(Collection $employees, PayrollPeriod $period): PayrollBatchContext
+    {
+        return PayrollBatchContext::forPeriod($period, $employees);
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    public function calculateEmployee(Employee $employee, PayrollPeriod $period): array
-    {
+    public function calculateEmployee(
+        Employee $employee,
+        PayrollPeriod $period,
+        ?PayrollBatchContext $batch = null,
+    ): array {
         $periodStart = Carbon::parse($period->start_date)->startOfDay();
         $periodEnd = Carbon::parse($period->end_date)->endOfDay();
         $asOfDate = Carbon::parse($period->end_date);
 
-        $attendance = $this->aggregateAttendance($employee, $period, $periodStart, $periodEnd);
-        $leave = $this->aggregateLeave($employee, $periodStart, $periodEnd);
-        $missionDays = $this->aggregateMissionDays($employee, $periodStart, $periodEnd);
-        $overtime = $this->aggregateOvertime($employee, $period);
-        $salary = $this->aggregateSalary($employee);
+        $attendance = $this->aggregateAttendance($employee, $period, $periodStart, $periodEnd, $batch);
+        $leave = $this->aggregateLeave($employee, $periodStart, $periodEnd, $batch);
+        $missionDays = $this->aggregateMissionDays($employee, $periodStart, $periodEnd, $batch);
+        $overtime = $this->aggregateOvertime($employee, $period, $batch);
+        $salary = $this->aggregateSalary($employee, $batch);
 
         $baseSalary = $salary['base_salary'];
         $hourlyRate = $this->hourlyRate($baseSalary, (int) $period->working_days);
@@ -84,7 +97,9 @@ class PayrollCalculator
             (bool) $employee->tax_exempt,
         );
 
-        $loanPayments = $this->loans->deductionsForPeriod($employee, $period);
+        $loanPayments = $batch !== null
+            ? $batch->loanPaymentsFor($employee->id)
+            : $this->loans->deductionsForPeriod($employee, $period);
         $loanDeduction = round((float) $loanPayments->sum('amount'), 2);
 
         $netSalary = round(
@@ -141,13 +156,16 @@ class PayrollCalculator
         Employee $employee,
         PayrollPeriod $period,
         Carbon $periodStart,
-        Carbon $periodEnd
+        Carbon $periodEnd,
+        ?PayrollBatchContext $batch = null,
     ): array {
-        $records = AttendanceRecord::query()
-            ->where('employee_id', $employee->id)
-            ->whereDate('date', '>=', $periodStart->toDateString())
-            ->whereDate('date', '<=', $periodEnd->toDateString())
-            ->get();
+        $records = $batch !== null
+            ? $batch->attendanceFor($employee->id)
+            : AttendanceRecord::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('date', '>=', $periodStart->toDateString())
+                ->whereDate('date', '<=', $periodEnd->toDateString())
+                ->get();
 
         $presentDays = 0;
         $absentDays = 0;
@@ -180,14 +198,20 @@ class PayrollCalculator
     /**
      * @return array{paid: float, unpaid: float}
      */
-    protected function aggregateLeave(Employee $employee, Carbon $periodStart, Carbon $periodEnd): array
-    {
-        $requests = LeaveRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', LeaveRequestStatus::Approved)
-            ->whereDate('start_date', '<=', $periodEnd->toDateString())
-            ->whereDate('end_date', '>=', $periodStart->toDateString())
-            ->get();
+    protected function aggregateLeave(
+        Employee $employee,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        ?PayrollBatchContext $batch = null,
+    ): array {
+        $requests = $batch !== null
+            ? $batch->leaveFor($employee->id)
+            : LeaveRequest::query()
+                ->where('employee_id', $employee->id)
+                ->where('status', LeaveRequestStatus::Approved)
+                ->whereDate('start_date', '<=', $periodEnd->toDateString())
+                ->whereDate('end_date', '>=', $periodStart->toDateString())
+                ->get();
 
         $paid = 0.0;
         $unpaid = 0.0;
@@ -209,8 +233,16 @@ class PayrollCalculator
         ];
     }
 
-    protected function aggregateMissionDays(Employee $employee, Carbon $periodStart, Carbon $periodEnd): float
-    {
+    protected function aggregateMissionDays(
+        Employee $employee,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        ?PayrollBatchContext $batch = null,
+    ): float {
+        if ($batch !== null) {
+            return $batch->missionDaysFor($employee->id);
+        }
+
         $days = MissionRequest::query()
             ->where('employee_id', $employee->id)
             ->where('status', LeaveRequestStatus::Approved)
@@ -224,9 +256,14 @@ class PayrollCalculator
     /**
      * @return array{minutes: array{regular: int, night: int, holiday: int}}
      */
-    protected function aggregateOvertime(Employee $employee, PayrollPeriod $period): array
-    {
-        $totals = $this->overtime->approvedMinutesForPeriod($employee, $period);
+    protected function aggregateOvertime(
+        Employee $employee,
+        PayrollPeriod $period,
+        ?PayrollBatchContext $batch = null,
+    ): array {
+        $totals = $batch !== null
+            ? $batch->overtimeFor($employee->id)
+            : $this->overtime->approvedMinutesForPeriod($employee, $period);
 
         return [
             'minutes' => [
@@ -245,9 +282,11 @@ class PayrollCalculator
      *     totals: array<string, float>
      * }
      */
-    protected function aggregateSalary(Employee $employee): array
+    protected function aggregateSalary(Employee $employee, ?PayrollBatchContext $batch = null): array
     {
-        $current = $this->salaries->currentSalary($employee);
+        $current = $batch !== null
+            ? $batch->salaryFor($employee->id)
+            : $this->salaries->currentSalary($employee);
 
         if ($current === null) {
             throw new InvalidArgumentException("Employee {$employee->id} has no current salary for payroll.");

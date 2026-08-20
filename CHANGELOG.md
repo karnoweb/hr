@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Phase 13 Security / Performance: multi-branch integration checklist and rate-limit guidance in `docs/USAGE.md` (HR-149, HR-158).
+- `PayrollBatchContext` for batched payroll-period calculation queries (HR-155).
+- `tests/Security/ServiceAuthorizationMatrixTest.php` and `tests/Performance/PayrollBatchQueryTest.php` (HR-150, HR-160).
+- `ConditionEvaluator::validateConditions()` with fail-closed validation on `Workflow`/`WorkflowStep` save (HR-157).
+
 ## [13.0.5] - 2026-08-20
 
 Phases 11–12 of the HR audit: workflow engine and accounting integration boundary.

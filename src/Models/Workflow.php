@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Karnoweb\Hr\Enums\WorkflowExecutionMode;
+use Karnoweb\Hr\Services\WorkflowValidator;
 
 /**
  * @property int|null $branch_id
@@ -28,6 +29,13 @@ class Workflow extends BaseModel
         'conditions' => 'array',
         'execution_mode' => WorkflowExecutionMode::class,
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Workflow $workflow): void {
+            app(WorkflowValidator::class)->validateWorkflow($workflow);
+        });
+    }
 
     /** @return HasMany<WorkflowStep, $this> */
     public function steps(): HasMany

@@ -13,11 +13,14 @@ class WorkflowValidator
 {
     public function __construct(
         protected ApproverResolver $approvers,
+        protected ConditionEvaluator $conditions,
     ) {}
 
     public function validateWorkflow(Workflow $workflow): void
     {
         $workflow->loadMissing('steps');
+
+        $this->conditions->validateConditions($workflow->conditions);
 
         foreach ($workflow->steps as $step) {
             $this->validateStep($step);
@@ -30,6 +33,7 @@ class WorkflowValidator
             throw new InvalidArgumentException('Workflow step name is required.');
         }
 
+        $this->conditions->validateConditions($step->condition);
         $this->approvers->validateStepConfiguration($step);
     }
 }

@@ -40,6 +40,55 @@ class ConditionEvaluator
     }
 
     /**
+     * Validate workflow condition JSON at write time (HR-136 / HR-157).
+     *
+     * @param  array<string, mixed>|list<array<string, mixed>>|null  $conditions
+     *
+     * @throws InvalidArgumentException
+     */
+    public function validateConditions(?array $conditions): void
+    {
+        if ($conditions === null || $conditions === []) {
+            return;
+        }
+
+        if ($this->isRule($conditions)) {
+            $this->assertValidRule($conditions);
+
+            return;
+        }
+
+        if (! array_is_list($conditions)) {
+            throw new InvalidArgumentException('Workflow conditions must be a rule object or a list of rules.');
+        }
+
+        foreach ($conditions as $rule) {
+            if (! is_array($rule) || ! $this->isRule($rule)) {
+                throw new InvalidArgumentException('Invalid workflow condition schema.');
+            }
+
+            $this->assertValidRule($rule);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $rule
+     */
+    protected function assertValidRule(array $rule): void
+    {
+        $operator = (string) $rule['operator'];
+        $allowed = ['eq', '==', 'ne', '!=', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in'];
+
+        if (! in_array($operator, $allowed, true)) {
+            throw new InvalidArgumentException("Unsupported condition operator [{$operator}].");
+        }
+
+        if (in_array($operator, ['in', 'not_in'], true) && ! is_array($rule['value'] ?? null)) {
+            throw new InvalidArgumentException("Condition operator [{$operator}] requires an array value.");
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $rule
      */
     protected function isRule(array $rule): bool

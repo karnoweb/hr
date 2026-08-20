@@ -78,9 +78,11 @@ class PayrollService
                 ->where('status', EmployeeStatus::Active)
                 ->get();
 
+            $batch = $this->calculator->preloadBatch($employees, $period);
+
             foreach ($employees as $employee) {
-                DB::transaction(function () use ($period, $employee) {
-                    $payload = $this->calculator->calculateEmployee($employee, $period);
+                DB::transaction(function () use ($period, $employee, $batch) {
+                    $payload = $this->calculator->calculateEmployee($employee, $period, $batch);
 
                     PayrollRecord::query()->updateOrCreate(
                         [

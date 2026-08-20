@@ -650,6 +650,41 @@ use Karnoweb\Hr\Enums\LoanStatus;
 
 ---
 
+## امنیت، چند-شعبه‌ای، و مسئولیت یکپارچه‌سازی
+
+پکیج HR یک **لایه دامنه** است، نه یک اپلیکیشن کامل. بیشتر متدهای سرویس **هیچ بررسی احراز هویت/مجوز سطح کاربر نهایی انجام نمی‌دهند** — این عمدی است و مسئولیت آن با اپ میزبان است (Controller، Policy، Middleware).
+
+### چک‌لیست چند-شعبه‌ای (HR-149)
+
+مدل‌های زیر ستون `branch_id` دارند (یا از طریق `employee.branch_id` به شعبه وابسته‌اند). **هیچ Global Scope پیش‌فرضی برای فیلتر شعبه وجود ندارد** — قبل از expose کردن API به کاربر نهایی، اپ میزبان باید یکی از این‌ها را اعمال کند:
+
+| مدل / حوزه | ستون شعبه | اقدام لازم در اپ میزبان |
+|---|---|---|
+| `Employee` | `branch_id` | Policy/Scope روی CRUD و گزارش‌ها |
+| `Department`, `Position`, `Shift` | `branch_id` | محدود کردن لیست/ویرایش به شعبه جاری |
+| `HrDocument`, `Workflow` | `branch_id` | submit/approve فقط برای اسناد همان شعبه |
+| `PayrollPeriod` | `branch_id` | باز کردن/محاسبه/تأیید دوره فقط برای شعبه مجاز |
+| `AttendanceRecord`, `LeaveRequest`, `MissionRequest` | از طریق `employee_id` | Scope از روی employee.branch_id |
+| `Loan`, `Contract`, `EmployeeSalary` | از طریق `employee_id` | Scope از روی employee.branch_id |
+
+Helperهایی مثل `scopeForBranch()` روی بعضی مدل‌ها وجود دارد، اما **opt-in** هستند — خودکار اعمال نمی‌شوند.
+
+### مجوزهای داخل پکیج
+
+| متد | رفتار |
+|---|---|
+| `DocumentService::approve()` / `reject()` | **در پکیج:** `actorId` باید با `assigned_to` برابر باشد؛ در غیر این صورت `UnauthorizedApprovalException` |
+| `DocumentService::create()` | **جزئی:** اعتبارسنجی `branch_id` کارمند در برابر options |
+| سایر سرویس‌ها (`employees`, `leave`, `loans`, `payroll`, …) | **خارج از پکیج:** فراخوان‌کننده باید Policy/Middleware خودش را اعمال کند |
+
+جزئیات audit: `HR-AUDIT-08-SECURITY-TESTING.md`. تست‌های زنده: `tests/Security/ServiceAuthorizationMatrixTest.php`.
+
+### محدودیت نرخ درخواست‌ها (HR-158)
+
+پکیج **rate limit** برای ایجاد درخواست مرخصی، وام، یا مأموریت پیاده نمی‌کند. اگر نگران spam/abuse هستید، در اپ میزبان از `RateLimiter`/`throttle` لاراول (یا WAF) روی routeهای مربوط استفاده کنید.
+
+---
+
 ## فاساد و تنظیمات
 
 ### فاساد Hr
