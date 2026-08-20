@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Karnoweb\Hr\Exceptions\InvalidOrganizationStructureException;
 
 /**
+ * @property int|null $head_employee_id
  * @property int|null $branch_id
  * @property int|null $parent_id
  * @property string $code
@@ -23,7 +24,7 @@ class Department extends BaseModel
     protected $table = 'departments';
 
     protected $fillable = [
-        'branch_id', 'parent_id', 'code', 'name', 'name_en', 'description',
+        'branch_id', 'parent_id', 'head_employee_id', 'code', 'name', 'name_en', 'description',
         'level', 'path', 'sort_order', 'is_active', 'metadata',
     ];
 

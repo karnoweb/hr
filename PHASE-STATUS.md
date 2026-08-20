@@ -15,7 +15,7 @@ Small tracker for the HR-AUDIT phase work. Update as each phase lands.
 | 8 Payroll | **Done** | PayrollService, PayrollCalculator, Insurance/Tax calculators, golden-master test, Hr::payroll(), 148 tests |
 | 9 Insurance + Tax | **Done** | Versioned rates, calculators, import command, employee exemptions, dependents config |
 | 10 Documents | **Done** | Concurrency-safe numbering, transactional submit/approve/reject, authorization, resubmit |
-| 11 Workflow | Not started | |
-| 12 Accounting boundary | Not started | |
+| 11 Workflow | **Done** | ApproverResolver, WorkflowEngine, conditions, sequential/parallel, timeouts, cancel |
+| 12 Accounting boundary | **Done** | PayrollPeriodApproved/Paid + LoanDisbursed events, docs, standalone test |
 | 13 Security / Performance | Not started | |
 | 14 Docs / Release / CI | Not started | |

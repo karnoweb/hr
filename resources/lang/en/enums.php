@@ -40,6 +40,7 @@ return [
         'pending' => 'Pending',
         'approved' => 'Approved',
         'rejected' => 'Rejected',
+        'cancelled' => 'Cancelled',
         'locked' => 'Locked',
     ],
     'attendance_status' => [
@@ -112,5 +113,15 @@ return [
         'approved' => 'Approved',
         'rejected' => 'Rejected',
         'skipped' => 'Skipped',
+    ],
+    'workflow_execution_mode' => [
+        'parallel' => 'Parallel',
+        'sequential' => 'Sequential',
+    ],
+    'timeout_action' => [
+        'auto_approve' => 'Auto Approve',
+        'auto_reject' => 'Auto Reject',
+        'escalate' => 'Escalate',
+        'skip' => 'Skip',
     ],
 ];

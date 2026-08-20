@@ -8,12 +8,15 @@ use Illuminate\Support\Facades\DB;
 use Karnoweb\Hr\Enums\EmployeeStatus;
 use Karnoweb\Hr\Enums\PayrollPeriodStatus;
 use Karnoweb\Hr\Enums\PayrollRecordStatus;
+use Karnoweb\Hr\Events\PayrollPeriodApproved;
+use Karnoweb\Hr\Events\PayrollPeriodPaid;
 use Karnoweb\Hr\Exceptions\PayrollPeriodExistsException;
 use Karnoweb\Hr\Exceptions\PayrollPeriodLockedException;
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\LoanPayment;
 use Karnoweb\Hr\Models\PayrollPeriod;
 use Karnoweb\Hr\Models\PayrollRecord;
+use Karnoweb\Hr\Support\AccountingEventDispatcher;
 use Karnoweb\Hr\Support\QueryExceptionClassifier;
 use Karnoweb\Hr\Support\WorkingDayCalculator;
 
@@ -126,7 +129,13 @@ class PayrollService
                 'approved_by' => $approvedBy,
             ]);
 
-            return $period->refresh()->load('records');
+            $period = $period->refresh()->load('records');
+
+            AccountingEventDispatcher::dispatch(
+                PayrollPeriodApproved::fromPeriod($period, $approvedBy)
+            );
+
+            return $period;
         });
     }
 
@@ -150,7 +159,11 @@ class PayrollService
                 'paid_at' => now(),
             ]);
 
-            return $period->refresh()->load('records');
+            $period = $period->refresh()->load('records');
+
+            AccountingEventDispatcher::dispatch(PayrollPeriodPaid::fromPeriod($period));
+
+            return $period;
         });
     }
 

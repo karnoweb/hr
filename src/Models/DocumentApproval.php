@@ -12,7 +12,7 @@ use Karnoweb\Hr\Enums\ApprovalStatus;
  * @property int $workflow_step_id
  * @property int|null $assigned_to
  * @property ApprovalStatus $status
- * @property string|null $comment
+ * @property-read WorkflowStep|null $step
  */
 class DocumentApproval extends BaseModel
 {

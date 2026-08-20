@@ -8,14 +8,17 @@ use InvalidArgumentException;
 use Karnoweb\Hr\Enums\ApprovalStatus;
 use Karnoweb\Hr\Enums\DocumentStatus;
 use Karnoweb\Hr\Enums\DocumentType;
+use Karnoweb\Hr\Enums\TimeoutAction;
 use Karnoweb\Hr\Exceptions\DocumentLockedException;
 use Karnoweb\Hr\Exceptions\UnauthorizedApprovalException;
+use Karnoweb\Hr\Exceptions\UnresolvableApproverException;
 use Karnoweb\Hr\Exceptions\UnresolvableWorkflowException;
 use Karnoweb\Hr\Models\DocumentApproval;
 use Karnoweb\Hr\Models\DocumentHistory;
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\HrDocument;
 use Karnoweb\Hr\Models\Workflow;
+use Karnoweb\Hr\Models\WorkflowStep;
 
 /**
  * Service for HR documents: create, submit, approve, reject with workflow and history.
@@ -29,14 +32,15 @@ use Karnoweb\Hr\Models\Workflow;
  */
 class DocumentService
 {
+    public function __construct(
+        protected WorkflowEngine $workflowEngine,
+    ) {}
+
     /**
      * Create a new HR document (draft) for the given type and employee.
      *
-     * @param  DocumentType  $type  Document type (e.g. employment, transfer).
-     * @param  Employee  $employee  Employee the document belongs to.
-     * @param  array<string, mixed>  $data  Document payload (stored in data column).
-     * @param  array{branch_id?: int|null, effective_date?: \DateTimeInterface|string, expiry_date?: \DateTimeInterface|string|null, notes?: string|null, created_by?: int|null, metadata?: array|null, allow_branch_override?: bool}  $options  branch_id (defaults to employee branch), effective_date (default now), expiry_date, notes, created_by, metadata, allow_branch_override.
-     * @return HrDocument Created document in Draft status.
+     * @param  array<string, mixed>  $data
+     * @param  array{branch_id?: int|null, effective_date?: \DateTimeInterface|string, expiry_date?: \DateTimeInterface|string|null, notes?: string|null, created_by?: int|null, metadata?: array|null, allow_branch_override?: bool}  $options
      */
     public function create(DocumentType $type, Employee $employee, array $data = [], array $options = []): HrDocument
     {
@@ -70,12 +74,6 @@ class DocumentService
         ]);
     }
 
-    /**
-     * Clone a rejected document into a new Draft for resubmission (HR-122).
-     *
-     * Rejected documents are terminal for the original row; edits go through a new Draft
-     * linked via metadata.resubmitted_from.
-     */
     public function resubmit(HrDocument $document, int|string|null $actorId = null): HrDocument
     {
         if ($document->status !== DocumentStatus::Rejected) {
@@ -107,13 +105,9 @@ class DocumentService
     }
 
     /**
-     * Submit a draft document: set status to Pending and create workflow approvals.
-     *
-     * @param  HrDocument  $document  Document to submit (must be editable / draft).
-     * @return HrDocument Updated document (fresh from DB).
-     *
-     * @throws DocumentLockedException When document is locked (e.g. already approved and locked).
-     * @throws UnresolvableWorkflowException When no workflow exists and skip_on_no_approver is false.
+     * @throws DocumentLockedException
+     * @throws UnresolvableWorkflowException
+     * @throws UnresolvableApproverException
      */
     public function submit(HrDocument $document, int|string|null $actorId = null): HrDocument
     {
@@ -136,16 +130,26 @@ class DocumentService
             );
         }
 
-        return DB::transaction(function () use ($document, $workflow, $actorId) {
+        $plan = $this->workflowEngine->planInitialApprovals($workflow, $document, $actorId);
+
+        if ($plan === []) {
+            throw new UnresolvableWorkflowException(
+                'Workflow conditions did not match this document.'
+            );
+        }
+
+        return DB::transaction(function () use ($document, $workflow, $actorId, $plan) {
             $document->update(['status' => DocumentStatus::Pending]);
 
-            foreach ($workflow->steps as $step) {
+            foreach ($plan as $payload) {
                 DocumentApproval::create([
                     'hr_document_id' => $document->id,
-                    'workflow_step_id' => $step->id,
-                    'assigned_to' => $step->approver_id,
-                    'status' => ApprovalStatus::Pending,
-                    'deadline_at' => $step->timeout_hours ? now()->addHours($step->timeout_hours) : null,
+                    'workflow_step_id' => $payload['step']->id,
+                    'assigned_to' => $payload['assigned_to'],
+                    'status' => $payload['status'],
+                    'comment' => $payload['comment'],
+                    'acted_at' => $payload['status'] !== ApprovalStatus::Pending ? now() : null,
+                    'deadline_at' => $payload['deadline_at'],
                 ]);
             }
 
@@ -158,20 +162,14 @@ class DocumentService
                 $actorId
             );
 
+            $document = $document->fresh();
+            $this->workflowEngine->activateNextSequentialSteps($document, $workflow);
+            $this->advanceDocumentStatusIfComplete($document, $actorId, $workflow);
+
             return $document->fresh();
         });
     }
 
-    /**
-     * Approve a pending document approval step; may mark document as Approved when workflow is complete.
-     *
-     * @param  DocumentApproval  $approval  Pending approval to approve.
-     * @param  string|null  $comment  Optional comment.
-     * @return DocumentApproval Updated approval (fresh from DB).
-     *
-     * @throws InvalidArgumentException When approval or document is not pending.
-     * @throws UnauthorizedApprovalException When actor does not match assigned_to.
-     */
     public function approve(DocumentApproval $approval, ?string $comment = null, int|string|null $actorId = null): DocumentApproval
     {
         $actorId = $this->resolveActorId($actorId);
@@ -206,22 +204,18 @@ class DocumentService
                 'approval_id' => $approval->id,
             ], $actorId);
 
-            $this->advanceDocumentStatusIfComplete($document, $actorId);
+            $workflow = Workflow::findForDocument($document);
+
+            if ($workflow !== null) {
+                $this->workflowEngine->activateNextSequentialSteps($document->fresh(), $workflow);
+            }
+
+            $this->advanceDocumentStatusIfComplete($document->fresh(), $actorId, $workflow);
 
             return $approval->fresh();
         });
     }
 
-    /**
-     * Reject a pending document approval; sets document status to Rejected.
-     *
-     * @param  DocumentApproval  $approval  Pending approval to reject.
-     * @param  string|null  $comment  Optional comment.
-     * @return DocumentApproval Updated approval (fresh from DB).
-     *
-     * @throws InvalidArgumentException When approval or document is not pending.
-     * @throws UnauthorizedApprovalException When actor does not match assigned_to.
-     */
     public function reject(DocumentApproval $approval, ?string $comment = null, int|string|null $actorId = null): DocumentApproval
     {
         $actorId = $this->resolveActorId($actorId);
@@ -244,6 +238,7 @@ class DocumentService
             }
 
             $this->ensureActorAuthorized($approval, $actorId);
+            $this->ensureStepCanReject($approval);
 
             $approval->update([
                 'status' => ApprovalStatus::Rejected,
@@ -272,19 +267,91 @@ class DocumentService
     }
 
     /**
-     * If all approvals are done (no pending), set document to Approved or Rejected and optionally lock.
+     * Cancel a pending document before any approval acts (HR-133).
      */
-    private function advanceDocumentStatusIfComplete(HrDocument $document, int|string|null $actorId): void
+    public function cancel(HrDocument $document, int|string|null $actorId = null, ?string $reason = null): HrDocument
     {
-        $pendingCount = $document->approvals()->where('status', ApprovalStatus::Pending)->count();
+        if ($document->status !== DocumentStatus::Pending) {
+            throw new InvalidArgumentException('Only pending documents can be cancelled.');
+        }
 
-        if ($pendingCount > 0) {
+        $actorId = $this->resolveActorId($actorId);
+
+        return DB::transaction(function () use ($document, $actorId, $reason) {
+            $document = HrDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
+
+            DocumentApproval::query()
+                ->where('hr_document_id', $document->id)
+                ->where('status', ApprovalStatus::Pending)
+                ->update([
+                    'status' => ApprovalStatus::Skipped,
+                    'acted_at' => now(),
+                    'comment' => 'Cancelled',
+                ]);
+
+            $document->update(['status' => DocumentStatus::Cancelled]);
+
+            $this->recordHistory(
+                $document,
+                'cancel',
+                DocumentStatus::Pending,
+                DocumentStatus::Cancelled,
+                ['reason' => $reason],
+                $actorId
+            );
+
+            return $document->fresh();
+        });
+    }
+
+    /**
+     * Apply a timeout action to an overdue pending approval (HR-131).
+     */
+    public function applyTimeoutAction(DocumentApproval $approval): DocumentApproval
+    {
+        return DB::transaction(function () use ($approval) {
+            $approval = DocumentApproval::query()->whereKey($approval->id)->lockForUpdate()->firstOrFail();
+
+            if ($approval->status !== ApprovalStatus::Pending) {
+                return $approval;
+            }
+
+            $document = HrDocument::query()
+                ->whereKey($approval->hr_document_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($document->status !== DocumentStatus::Pending) {
+                return $approval;
+            }
+
+            $step = $approval->step;
+
+            if (! $step instanceof WorkflowStep) {
+                throw new InvalidArgumentException('Approval has no workflow step.');
+            }
+
+            $action = $this->timeoutAction($step);
+
+            return match ($action) {
+                TimeoutAction::AutoApprove => $this->systemApprove($approval, $document, 'Timeout auto-approve'),
+                TimeoutAction::AutoReject => $this->systemReject($approval, $document, 'Timeout auto-reject'),
+                TimeoutAction::Skip => $this->systemSkip($approval, $document),
+                TimeoutAction::Escalate => $this->systemEscalate($approval, $document, $step),
+            };
+        });
+    }
+
+    private function advanceDocumentStatusIfComplete(
+        HrDocument $document,
+        int|string|null $actorId,
+        ?Workflow $workflow = null,
+    ): void {
+        if ($this->workflowEngine->hasBlockingRequiredPending($document)) {
             return;
         }
 
-        $rejectedCount = $document->approvals()->where('status', ApprovalStatus::Rejected)->count();
-
-        if ($rejectedCount > 0) {
+        if ($this->workflowEngine->hasRejectedRequired($document)) {
             $document->update(['status' => DocumentStatus::Rejected]);
 
             return;
@@ -314,12 +381,108 @@ class DocumentService
         $this->recordHistory($document, 'approved', $fromStatus, DocumentStatus::Approved, [], $actorId);
     }
 
+    private function systemApprove(DocumentApproval $approval, HrDocument $document, string $comment): DocumentApproval
+    {
+        $approval->update([
+            'status' => ApprovalStatus::Approved,
+            'comment' => $comment,
+            'acted_at' => now(),
+        ]);
+
+        $workflow = Workflow::findForDocument($document);
+
+        if ($workflow !== null) {
+            $this->workflowEngine->activateNextSequentialSteps($document->fresh(), $workflow);
+        }
+
+        $this->advanceDocumentStatusIfComplete($document->fresh(), null, $workflow);
+
+        return $approval->fresh();
+    }
+
+    private function systemReject(DocumentApproval $approval, HrDocument $document, string $comment): DocumentApproval
+    {
+        $approval->update([
+            'status' => ApprovalStatus::Rejected,
+            'comment' => $comment,
+            'acted_at' => now(),
+        ]);
+
+        $document->update(['status' => DocumentStatus::Rejected]);
+
+        DocumentApproval::query()
+            ->where('hr_document_id', $document->id)
+            ->where('status', ApprovalStatus::Pending)
+            ->whereKeyNot($approval->id)
+            ->update([
+                'status' => ApprovalStatus::Skipped,
+                'acted_at' => now(),
+            ]);
+
+        return $approval->fresh();
+    }
+
+    private function systemSkip(DocumentApproval $approval, HrDocument $document): DocumentApproval
+    {
+        $approval->update([
+            'status' => ApprovalStatus::Skipped,
+            'comment' => 'Timeout skip',
+            'acted_at' => now(),
+        ]);
+
+        $workflow = Workflow::findForDocument($document);
+
+        if ($workflow !== null) {
+            $this->workflowEngine->activateNextSequentialSteps($document->fresh(), $workflow);
+        }
+
+        $this->advanceDocumentStatusIfComplete($document->fresh(), null, $workflow);
+
+        return $approval->fresh();
+    }
+
+    private function systemEscalate(DocumentApproval $approval, HrDocument $document, WorkflowStep $step): DocumentApproval
+    {
+        $resolver = app(ApproverResolver::class);
+        $newAssignee = $resolver->resolveEscalationTarget($document, $step, (int) $approval->assigned_to);
+
+        $approval->update([
+            'assigned_to' => $newAssignee,
+            'deadline_at' => $step->timeout_hours ? now()->addHours((int) $step->timeout_hours) : null,
+            'comment' => 'Escalated after timeout',
+        ]);
+
+        return $approval->fresh();
+    }
+
+    private function timeoutAction(WorkflowStep $step): TimeoutAction
+    {
+        $raw = $step->timeout_action;
+
+        if ($raw === null) {
+            return TimeoutAction::AutoApprove;
+        }
+
+        $action = $raw instanceof TimeoutAction ? $raw : TimeoutAction::tryFrom((string) $raw);
+
+        return $action ?? TimeoutAction::AutoApprove;
+    }
+
     private function ensureDocumentPending(HrDocument $document): void
     {
         if ($document->status !== DocumentStatus::Pending) {
             throw new InvalidArgumentException(
                 "Document is not pending (current: {$document->status->value})."
             );
+        }
+    }
+
+    private function ensureStepCanReject(DocumentApproval $approval): void
+    {
+        $step = $approval->step;
+
+        if ($step instanceof WorkflowStep && ! $step->can_reject) {
+            throw new InvalidArgumentException('This workflow step does not allow rejection.');
         }
     }
 

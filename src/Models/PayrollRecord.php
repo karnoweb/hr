@@ -13,6 +13,11 @@ use Karnoweb\Hr\Enums\PayrollRecordStatus;
  * @property float $gross_salary
  * @property float $net_salary
  * @property float $payable
+ * @property float $insurance_employee
+ * @property float $insurance_employer
+ * @property float $insurance_unemployment
+ * @property float $taxable_income
+ * @property float $tax
  * @property float $loan_deduction
  * @property array<string, mixed>|null $calculation_log
  * @property PayrollRecordStatus $status

@@ -5,9 +5,12 @@ namespace Karnoweb\Hr\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Karnoweb\Hr\Enums\WorkflowExecutionMode;
 
 /**
  * @property int|null $branch_id
+ * @property WorkflowExecutionMode|string $execution_mode
+ * @property array|null $conditions
  */
 class Workflow extends BaseModel
 {
@@ -16,13 +19,14 @@ class Workflow extends BaseModel
     protected $table = 'workflows';
 
     protected $fillable = [
-        'branch_id', 'name', 'document_type', 'description', 'is_active', 'priority', 'conditions',
+        'branch_id', 'name', 'document_type', 'description', 'is_active', 'priority', 'execution_mode', 'conditions',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'priority' => 'integer',
         'conditions' => 'array',
+        'execution_mode' => WorkflowExecutionMode::class,
     ];
 
     /** @return HasMany<WorkflowStep, $this> */

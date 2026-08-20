@@ -38,6 +38,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('hr.employee_code.sequence_length', 4);
         $app['config']->set('hr.employee_code.sequence_per_branch', false);
         $app['config']->set('hr.employee_code.sequence_per_year', true);
+        $app['config']->set('hr.accounting.dispatch_after_commit', false);
     }
 
     protected function defineDatabaseMigrations(): void

@@ -8,6 +8,7 @@ use Karnoweb\Hr\Enums\ApproverType;
 use Karnoweb\Hr\Enums\DocumentStatus;
 use Karnoweb\Hr\Enums\DocumentType;
 use Karnoweb\Hr\Exceptions\UnauthorizedApprovalException;
+use Karnoweb\Hr\Exceptions\UnresolvableApproverException;
 use Karnoweb\Hr\Exceptions\UnresolvableWorkflowException;
 use Karnoweb\Hr\Facades\Hr;
 use Karnoweb\Hr\Models\DocumentHistory;
@@ -100,17 +101,32 @@ class DocumentTest extends TestCase
         $this->assertNotNull($workflow->id);
     }
 
-    public function test_submit_rolls_back_when_approval_insert_fails(): void
+    public function test_submit_throws_before_persisting_when_approver_unresolvable(): void
     {
         $employee = Hr::employees()->createForUser($this->makeUser(), ['branch_id' => 1]);
-        $this->workflowFor(DocumentType::Leave, approverIds: [null]);
+
+        $workflow = Workflow::query()->create([
+            'branch_id' => 1,
+            'name' => 'Broken head',
+            'document_type' => DocumentType::Leave->value,
+            'is_active' => true,
+            'priority' => 10,
+        ]);
+
+        WorkflowStep::query()->create([
+            'workflow_id' => $workflow->id,
+            'order' => 1,
+            'name' => 'Head',
+            'approver_type' => ApproverType::DepartmentHead,
+        ]);
+
         $document = Hr::documents()->create(DocumentType::Leave, $employee);
 
         try {
             Hr::documents()->submit($document);
-            $this->fail('Expected query exception for null assigned_to.');
-        } catch (\Throwable) {
-            // expected — NOT NULL on assigned_to
+            $this->fail('Expected UnresolvableApproverException.');
+        } catch (UnresolvableApproverException) {
+            // expected
         }
 
         $this->assertSame(DocumentStatus::Draft, $document->fresh()->status);

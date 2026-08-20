@@ -504,10 +504,17 @@ if ($document->canEdit()) {
 Hr::documents()->submit($document);           // وضعیت به pending و رکوردهای DocumentApproval ساخته می‌شوند
 Hr::documents()->approve($approval, $comment, actorId: $userId); // تأیید مرحله — actorId الزامی اگر auth ندارید
 Hr::documents()->reject($approval, $comment, actorId: $userId);  // رد سند
+Hr::documents()->cancel($pendingDocument, actorId: $userId, reason: '...');
 Hr::documents()->resubmit($rejectedDocument); // سند ردشده → Draft جدید (metadata.resubmitted_from)
 ```
 
-پس از ارسال، بر اساس Workflow تعریف‌شده برای آن `document_type`، رکوردهای **DocumentApproval** برای هر مرحله ایجاد می‌شود. وقتی همه مراحل تأیید شوند، وضعیت سند به `approved` و در صورت تنظیم، پس از `lock_delay_hours` به `locked` تغییر می‌کند. برای کنترل دستی از مدل‌های `Workflow`, `WorkflowStep`, `DocumentApproval` و `DocumentHistory` استفاده کنید.
+پس از ارسال، بر اساس Workflow تعریف‌شده برای آن `document_type`، رکوردهای **DocumentApproval** برای هر مرحله ایجاد می‌شود. وقتی همه مراحل تأیید شوند، وضعیت سند به `approved` و در صورت تنظیم، پس از `lock_delay_hours` به `locked` تغییر می‌کند.
+
+**Workflow (فاز ۱۱):** `ApproverResolver` انواع `user` / `department_head` / `position` / `custom` را به user id تبدیل می‌کند. `Department.head_employee_id` برای department head لازم است. `execution_mode` روی Workflow می‌تواند `parallel` (پیش‌فرض) یا `sequential` باشد. شرط مرحله (`condition`) و `is_required`/`can_reject` رعایت می‌شوند. timeout با `php artisan hr:process-workflow-timeouts` (هر ۵ دقیقه در scheduler).
+
+```bash
+php artisan hr:process-workflow-timeouts
+```
 
 ---
 

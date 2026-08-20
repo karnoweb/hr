@@ -40,6 +40,7 @@ return [
         'pending' => 'در انتظار تأیید',
         'approved' => 'تأیید شده',
         'rejected' => 'رد شده',
+        'cancelled' => 'لغو شده',
         'locked' => 'قفل شده',
     ],
     'attendance_status' => [
@@ -112,5 +113,15 @@ return [
         'approved' => 'تأیید شده',
         'rejected' => 'رد شده',
         'skipped' => 'ردیف شده',
+    ],
+    'workflow_execution_mode' => [
+        'parallel' => 'موازی',
+        'sequential' => 'ترتیبی',
+    ],
+    'timeout_action' => [
+        'auto_approve' => 'تأیید خودکار',
+        'auto_reject' => 'رد خودکار',
+        'escalate' => 'ارجاع',
+        'skip' => 'رد کردن مرحله',
     ],
 ];

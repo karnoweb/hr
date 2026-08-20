@@ -9,7 +9,10 @@ use Karnoweb\Hr\Calculators\TaxCalculator;
 use Karnoweb\Hr\Console\Commands\AutoClockOutCommand;
 use Karnoweb\Hr\Console\Commands\CarryOverLeaveBalancesCommand;
 use Karnoweb\Hr\Console\Commands\ImportRatesCommand;
+use Karnoweb\Hr\Console\Commands\ProcessWorkflowTimeoutsCommand;
+use Karnoweb\Hr\Services\ApproverResolver;
 use Karnoweb\Hr\Services\AttendanceService;
+use Karnoweb\Hr\Services\ConditionEvaluator;
 use Karnoweb\Hr\Services\ContractService;
 use Karnoweb\Hr\Services\DocumentService;
 use Karnoweb\Hr\Services\EmployeeService;
@@ -25,6 +28,8 @@ use Karnoweb\Hr\Services\SalaryCalculator;
 use Karnoweb\Hr\Services\SalaryService;
 use Karnoweb\Hr\Services\ShiftAssignmentService;
 use Karnoweb\Hr\Services\ShiftResolver;
+use Karnoweb\Hr\Services\WorkflowEngine;
+use Karnoweb\Hr\Services\WorkflowValidator;
 use Karnoweb\Hr\Support\OvertimeMinuteClassifier;
 use Karnoweb\Hr\Support\SalaryExpressionEvaluator;
 use Karnoweb\Hr\Support\SalaryItemValidator;
@@ -40,6 +45,10 @@ class HrServiceProvider extends ServiceProvider
             'hr'
         );
 
+        $this->app->singleton(ApproverResolver::class);
+        $this->app->singleton(ConditionEvaluator::class);
+        $this->app->singleton(WorkflowEngine::class);
+        $this->app->singleton(WorkflowValidator::class);
         $this->app->singleton(SequenceGenerator::class);
         $this->app->singleton(WorkingDayCalculator::class);
         $this->app->singleton(ShiftResolver::class);
@@ -82,6 +91,7 @@ class HrServiceProvider extends ServiceProvider
                 AutoClockOutCommand::class,
                 CarryOverLeaveBalancesCommand::class,
                 ImportRatesCommand::class,
+                ProcessWorkflowTimeoutsCommand::class,
             ]);
         }
 
@@ -92,6 +102,7 @@ class HrServiceProvider extends ServiceProvider
 
             $schedule = $this->app->make(Schedule::class);
             $schedule->command('hr:auto-clock-out')->hourly();
+            $schedule->command('hr:process-workflow-timeouts')->everyFiveMinutes();
         });
     }
 }

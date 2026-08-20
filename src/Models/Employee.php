@@ -22,6 +22,8 @@ use Karnoweb\Hr\Exceptions\InvalidEmployeeLifecycleException;
  * @property EmployeeStatus $status
  * @property string|null $national_id
  * @property bool $allowLifecycleStatusChange Internal flag set by EmployeeService lifecycle methods.
+ * @property string $employable_type
+ * @property int|string $employable_id
  * @property bool $insurance_exempt
  * @property bool $tax_exempt
  * @property float|null $additional_tax_exemption

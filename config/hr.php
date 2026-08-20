@@ -273,6 +273,18 @@ return [
         'default_approver_type' => 'department_head',
         'skip_on_no_approver' => false,
         'auto_approve_own_department' => false,
+        'escalation_fallback_user_id' => null,
+        'custom_approver_resolver' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accounting integration boundary
+    |--------------------------------------------------------------------------
+    */
+    'accounting' => [
+        // Production: dispatch events after DB commit. Tests set this to false in TestCase.
+        'dispatch_after_commit' => true,
     ],
 
 ];

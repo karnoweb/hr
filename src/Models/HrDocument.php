@@ -24,7 +24,9 @@ use Karnoweb\Hr\Support\SequenceGenerator;
  * @property array|null $metadata
  * @property array|null $data
  * @property int|string|null $approved_by
+ * @property int|string|null $created_by
  * @property Carbon|null $approved_at
+ * @property-read Employee|null $employee
  */
 class HrDocument extends BaseModel
 {

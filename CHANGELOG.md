@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+## [13.0.5] - 2026-08-20
+
+Phases 11–12 of the HR audit: workflow engine and accounting integration boundary.
+
+### Added
+
+- `WorkflowEngine`, `ApproverResolver`, `ConditionEvaluator`, and `WorkflowValidator` with sequential/parallel execution, step conditions, timeouts, and escalation (HR-125–HR-138).
+- `hr:process-workflow-timeouts` command; `DocumentStatus::Cancelled` and `DocumentService::cancel()`.
+- Migrations: `departments.head_employee_id`, `workflows.execution_mode`, `workflow_steps.escalation_user_id`.
+- Phase 12 Accounting boundary: `PayrollPeriodApproved`, `PayrollPeriodPaid`, and `LoanDisbursed` events via `AccountingEventDispatcher` (post-commit in production), `docs/ACCOUNTING.md`, standalone usage test, and architecture guard.
+
+### Changed
+
+- `DocumentService` integrated with workflow engine for submit/approve/reject/cancel lifecycle.
+- `PayrollService` and `LoanService` dispatch accounting events after commit (configurable via `hr.accounting.dispatch_after_commit`).
+
+### Notes
+
+- Tests set `hr.accounting.dispatch_after_commit` to `false` so events fire under `RefreshDatabase`.
+- Workflow approver resolution requires `departments.head_employee_id` or explicit user/role configuration.
+
 ## [13.0.4] - 2026-08-19
 
 Phases 9–10 of the HR audit: insurance/tax completion and documents hardening.

@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int|null $current_key Set to employee_id for the single current primary row; null otherwise.
+ * @property int $employee_id
+ * @property int|null $department_id
+ * @property int $position_id
  */
 class EmployeePosition extends BaseModel
 {

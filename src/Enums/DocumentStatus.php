@@ -8,6 +8,7 @@ enum DocumentStatus: string
     case Pending = 'pending';
     case Approved = 'approved';
     case Rejected = 'rejected';
+    case Cancelled = 'cancelled';
     case Locked = 'locked';
 
     public function label(): string
@@ -17,6 +18,7 @@ enum DocumentStatus: string
             self::Pending => __('hr::enums.document_status.pending'),
             self::Approved => __('hr::enums.document_status.approved'),
             self::Rejected => __('hr::enums.document_status.rejected'),
+            self::Cancelled => __('hr::enums.document_status.cancelled'),
             self::Locked => __('hr::enums.document_status.locked'),
         };
     }
@@ -28,6 +30,7 @@ enum DocumentStatus: string
             self::Pending => 'warning',
             self::Approved => 'success',
             self::Rejected => 'danger',
+            self::Cancelled => 'secondary',
             self::Locked => 'info',
         };
     }

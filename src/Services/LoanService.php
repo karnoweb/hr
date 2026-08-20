@@ -9,10 +9,12 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Karnoweb\Hr\Enums\LoanPaymentStatus;
 use Karnoweb\Hr\Enums\LoanStatus;
+use Karnoweb\Hr\Events\LoanDisbursed;
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\Loan;
 use Karnoweb\Hr\Models\LoanPayment;
 use Karnoweb\Hr\Models\PayrollPeriod;
+use Karnoweb\Hr\Support\AccountingEventDispatcher;
 use Karnoweb\Hr\Support\HrDocumentReference;
 use Karnoweb\Hr\Support\SequenceGenerator;
 
@@ -94,7 +96,11 @@ class LoanService
 
             $loan->update(['status' => LoanStatus::Active]);
 
-            return $loan->refresh()->load('payments');
+            $loan = $loan->refresh()->load('payments');
+
+            AccountingEventDispatcher::dispatch(LoanDisbursed::fromLoan($loan));
+
+            return $loan;
         });
     }
 
