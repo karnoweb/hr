@@ -96,6 +96,7 @@ return [
         'active' => 'فعال',
         'completed' => 'تسویه شده',
         'cancelled' => 'لغو شده',
+        'receivable' => 'مطالبات',
     ],
     'loan_payment_status' => [
         'pending' => 'در انتظار',

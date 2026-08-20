@@ -31,8 +31,10 @@ use Karnoweb\Hr\Services\ShiftResolver;
 use Karnoweb\Hr\Services\WorkflowEngine;
 use Karnoweb\Hr\Services\WorkflowValidator;
 use Karnoweb\Hr\Support\OvertimeMinuteClassifier;
+use Karnoweb\Hr\Support\PeriodRangeAllocator;
 use Karnoweb\Hr\Support\SalaryExpressionEvaluator;
 use Karnoweb\Hr\Support\SalaryItemValidator;
+use Karnoweb\Hr\Support\SalaryPeriodAggregator;
 use Karnoweb\Hr\Support\SequenceGenerator;
 use Karnoweb\Hr\Support\WorkingDayCalculator;
 
@@ -51,6 +53,8 @@ class HrServiceProvider extends ServiceProvider
         $this->app->singleton(WorkflowValidator::class);
         $this->app->singleton(SequenceGenerator::class);
         $this->app->singleton(WorkingDayCalculator::class);
+        $this->app->singleton(PeriodRangeAllocator::class);
+        $this->app->singleton(SalaryPeriodAggregator::class);
         $this->app->singleton(ShiftResolver::class);
         $this->app->singleton(ShiftAssignmentService::class);
         $this->app->singleton(AttendanceService::class);

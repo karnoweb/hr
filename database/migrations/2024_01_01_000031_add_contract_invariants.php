@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * One active contract per employee (HR-027) + unique contract_number (HR-029).
  *
- * Uses the current_key / active_key pattern from docs/ARCHITECTURE.md:
+ * Uses the current_key / active_key pattern from docs/concepts/architecture.md:
  * active_key = employee_id only while status is active; NULL otherwise.
  */
 return new class extends Migration

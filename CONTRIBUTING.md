@@ -39,16 +39,15 @@ All three must pass. GitHub Actions (`.github/workflows/tests.yml`) runs the sam
 
 ## Where to put new code
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for Service vs Calculator vs Event vs Exception boundaries.
+See [docs/concepts/architecture.md](docs/concepts/architecture.md) for Service vs Calculator vs Event vs Exception boundaries.
 
 ## Repository documentation map
 
 | Path | Purpose |
 |------|---------|
 | [README.md](README.md) | Package overview and quick start |
-| [docs/USAGE.md](docs/USAGE.md) | Detailed usage (Persian), facade examples |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | ADRs and layer boundaries |
-| [docs/ACCOUNTING.md](docs/ACCOUNTING.md) | Accounting integration events (no accounting package dependency) |
+| [docs/concepts/](docs/concepts/README.md) | Domain concepts and future-labeled gaps |
+| [docs/usage/](docs/usage/README.md) | Usage, rules, errors, stored results |
 | [hr-package.md](hr-package.md) | Original design blueprint (historical) |
 | [HR-AUDIT.md](HR-AUDIT.md) | Audit index |
 | [HR-AUDIT-PHASE-*.md](HR-AUDIT-PHASE-00.md) | Phase implementation checklists (living history) |

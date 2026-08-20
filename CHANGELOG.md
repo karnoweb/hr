@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+## [13.2.0] - 2026-08-20
+
+Correctness release: period-effective payroll, cross-period leave/mission allocation, concurrency on caps, and documentation split.
+
+### Fixed
+
+- Payroll now resolves period-effective salaries and prorates mid-period changes (HR-C01, HR-C03).
+- Leave, mission, and leave-balance totals allocate only the days that fall inside a period or year (HR-C02).
+- Overtime monthly cap and hourly leave cap lock the employee before the quota check (HR-C04, HR-C05).
+- Mission approval revalidates overlap and employee lifecycle (HR-C06).
+- Manual loan installment amounts that cannot produce a valid final installment are rejected (HR-C07).
+- Salary formulas expand nested dependencies beyond the first level (HR-C08).
+- Sequential workflows treat optional-only order groups as resolvable steps (HR-C11).
+
+### Changed
+
+- Insurance ceiling uses versioned `insurance_rates.minimum_wage` with config fallback (HR-C09).
+- Tax supports explicit `hr.tax.method` (`monthly_annualization` or `ytd_reconciliation`) (HR-C09).
+- Terminating an employee marks active loans receivable by default (`hr.loan.termination_policy`) (HR-C10).
+- Payroll `calculation_log` now snapshots salary segments, allocations, and statutory rule versions (HR-C12).
+- Documentation split into `docs/concepts/` (including future-labeled gaps) and `docs/usage/` (rules, errors, stored results).
+
+### Notes
+
+- Host apps that relied on terminated employees keeping `LoanStatus::Active` should set `hr.loan.termination_policy` to `leave_active` or handle `receivable`.
+- New migration `2024_01_01_000041_add_insurance_rate_minimum_wage` backfills `insurance_rates.minimum_wage` from config.
+
 ## [13.1.0] - 2026-08-20
 
 Audit-complete release (Phases 0–14) on the **Laravel 13 package line** (`karnoweb/hr` v13.x). Substantial domain implementation vs. early v13.0 schema-only state.

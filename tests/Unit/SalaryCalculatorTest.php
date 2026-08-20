@@ -199,6 +199,64 @@ class SalaryCalculatorTest extends TestCase
         $this->assertSame(11_500_000.0, $result['totals']['gross_earnings']);
     }
 
+    public function test_nested_dependencies_outside_the_structure_are_expanded(): void
+    {
+        $employee = Hr::employees()->createForUser($this->makeUser(), ['branch_id' => 1]);
+
+        SalaryItem::query()->create([
+            'branch_id' => 1,
+            'code' => 'C_BASE',
+            'name' => 'C',
+            'type' => SalaryItemType::Earning,
+            'calculation_type' => CalculationType::Fixed,
+            'default_value' => 1_000_000,
+        ]);
+
+        SalaryItem::query()->create([
+            'branch_id' => 1,
+            'code' => 'B_MID',
+            'name' => 'B',
+            'type' => SalaryItemType::Earning,
+            'calculation_type' => CalculationType::Percentage,
+            'default_value' => 50,
+            'percentage_of' => 'C_BASE',
+        ]);
+
+        $itemA = SalaryItem::query()->create([
+            'branch_id' => 1,
+            'code' => 'A_TOP',
+            'name' => 'A',
+            'type' => SalaryItemType::Earning,
+            'calculation_type' => CalculationType::Percentage,
+            'default_value' => 10,
+            'percentage_of' => 'B_MID',
+        ]);
+
+        $structure = SalaryStructure::query()->create([
+            'branch_id' => 1,
+            'code' => 'NESTED',
+            'name' => 'Nested',
+        ]);
+
+        SalaryStructureItem::query()->create([
+            'salary_structure_id' => $structure->id,
+            'salary_item_id' => $itemA->id,
+            'value' => 0,
+        ]);
+
+        $salary = Hr::salaries()->assign($employee, [
+            'base_salary' => 10_000_000,
+            'salary_structure_id' => $structure->id,
+        ]);
+
+        $result = app(SalaryCalculator::class)->calculate($salary->fresh(['items.salaryItem', 'salaryStructure.items.salaryItem']));
+        $amounts = collect($result['items'])->pluck('amount', 'code');
+
+        $this->assertSame(1_000_000.0, $amounts['C_BASE']);
+        $this->assertSame(500_000.0, $amounts['B_MID']);
+        $this->assertSame(50_000.0, $amounts['A_TOP']);
+    }
+
     public function test_circular_percentage_dependency_is_rejected_on_update(): void
     {
         SalaryItem::query()->create([

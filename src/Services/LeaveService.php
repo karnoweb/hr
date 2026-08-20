@@ -15,6 +15,7 @@ use Karnoweb\Hr\Models\LeaveBalance;
 use Karnoweb\Hr\Models\LeaveRequest;
 use Karnoweb\Hr\Support\DateRangeOverlap;
 use Karnoweb\Hr\Support\HrDocumentReference;
+use Karnoweb\Hr\Support\PeriodRangeAllocator;
 use Karnoweb\Hr\Support\WorkingDayCalculator;
 
 /**
@@ -27,6 +28,7 @@ class LeaveService
         protected WorkingDayCalculator $workingDays,
         protected AttendanceService $attendance,
         protected DocumentService $documents,
+        protected PeriodRangeAllocator $allocator,
     ) {}
 
     /**
@@ -54,12 +56,11 @@ class LeaveService
             : (float) ($data['days'] ?? 0);
 
         $hours = (float) ($data['hours'] ?? 0);
-        $year = (int) $start->year;
 
         $this->assertFixedDaysRule($type, $days);
         $this->assertOncePerEmploymentRule($employee, $type);
 
-        return DB::transaction(function () use ($employee, $data, $type, $start, $end, $days, $hours, $year, $options) {
+        return DB::transaction(function () use ($employee, $data, $type, $start, $end, $days, $hours, $options) {
             $employee = Employee::query()->whereKey($employee->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertNoOverlap($employee, $start, $end);
@@ -67,7 +68,7 @@ class LeaveService
             if ($type === 'hourly') {
                 $this->assertHourlyMonthlyCap($employee, $start, $hours);
             } elseif ($this->balances->usesDayBalance($type)) {
-                $this->assertSufficientBalance($employee, $year, $type, $days);
+                $this->assertSufficientBalanceForRange($employee, $start, $end, $type, $days);
             }
 
             HrDocumentReference::assertValid(isset($data['hr_document_id']) ? (int) $data['hr_document_id'] : null);
@@ -105,13 +106,13 @@ class LeaveService
     public function approve(LeaveRequest $request): LeaveRequest
     {
         return DB::transaction(function () use ($request) {
+            $employee = Employee::query()->whereKey($request->employee_id)->lockForUpdate()->firstOrFail();
             $request = LeaveRequest::query()->whereKey($request->getKey())->lockForUpdate()->firstOrFail();
 
             if ($request->status !== LeaveRequestStatus::Pending) {
                 throw new InvalidArgumentException('Only pending leave requests can be approved.');
             }
 
-            $employee = Employee::query()->findOrFail($request->employee_id);
             $typeConfig = $this->balances->typeConfig($request->type) ?? [];
 
             $this->assertRequiredDocumentPresent($request, $typeConfig);
@@ -119,21 +120,7 @@ class LeaveService
             if ($request->type === 'hourly') {
                 $this->assertHourlyMonthlyCap($employee, Carbon::parse($request->start_date), (float) $request->hours, $request->id);
             } elseif ($this->balances->usesDayBalance($request->type) && ($typeConfig['paid'] ?? false)) {
-                $balance = $this->balances->ensureBalance(
-                    $employee,
-                    (int) Carbon::parse($request->start_date)->year,
-                    $request->type
-                );
-
-                $balance = LeaveBalance::query()->whereKey($balance->getKey())->lockForUpdate()->firstOrFail();
-
-                if ((float) $request->days > (float) $balance->remaining_days) {
-                    throw new InsufficientLeaveBalanceException(
-                        "Insufficient leave balance to approve request (need {$request->days}, remaining {$balance->remaining_days})."
-                    );
-                }
-
-                $this->balances->decrement($balance, (float) $request->days);
+                $this->applyBalanceChange($employee, $request, decrement: true);
             }
 
             $request->update(['status' => LeaveRequestStatus::Approved]);
@@ -170,8 +157,8 @@ class LeaveService
     public function cancel(LeaveRequest $request, ?string $reason = null): LeaveRequest
     {
         return DB::transaction(function () use ($request, $reason) {
+            $employee = Employee::query()->whereKey($request->employee_id)->lockForUpdate()->firstOrFail();
             $request = LeaveRequest::query()->whereKey($request->getKey())->lockForUpdate()->firstOrFail();
-            $employee = Employee::query()->findOrFail($request->employee_id);
             $today = Carbon::now()->startOfDay();
 
             if ($request->status === LeaveRequestStatus::Pending) {
@@ -193,15 +180,7 @@ class LeaveService
                 $typeConfig = $this->balances->typeConfig($request->type) ?? [];
 
                 if ($this->balances->usesDayBalance($request->type) && ($typeConfig['paid'] ?? false)) {
-                    $balance = $this->balances->lockBalance(
-                        $employee,
-                        (int) Carbon::parse($request->start_date)->year,
-                        $request->type
-                    );
-
-                    if ($balance !== null) {
-                        $this->balances->increment($balance, (float) $request->days);
-                    }
+                    $this->applyBalanceChange($employee, $request, decrement: false);
                 }
 
                 $this->attendance->revertStatusForWorkingDays(
@@ -231,6 +210,18 @@ class LeaveService
             ->first();
     }
 
+    protected function assertSufficientBalanceForRange(
+        Employee $employee,
+        Carbon $start,
+        Carbon $end,
+        string $type,
+        float $days,
+    ): void {
+        foreach ($this->allocator->allocateDaysByYear($start, $end, $days, $employee->branch_id) as $year => $yearDays) {
+            $this->assertSufficientBalance($employee, $year, $type, $yearDays);
+        }
+    }
+
     protected function assertSufficientBalance(Employee $employee, int $year, string $type, float $days): void
     {
         $balance = $this->balances->ensureBalance($employee, $year, $type);
@@ -243,6 +234,39 @@ class LeaveService
             throw new InsufficientLeaveBalanceException(
                 "Insufficient leave balance (requested {$days}, available {$available} after pending requests)."
             );
+        }
+    }
+
+    protected function applyBalanceChange(Employee $employee, LeaveRequest $request, bool $decrement): void
+    {
+        $allocations = $this->allocator->allocateDaysByYear(
+            Carbon::parse($request->start_date),
+            Carbon::parse($request->end_date),
+            (float) $request->days,
+            $employee->branch_id,
+        );
+
+        foreach ($allocations as $year => $yearDays) {
+            if ($decrement) {
+                $balance = $this->balances->ensureBalance($employee, $year, $request->type);
+                $balance = LeaveBalance::query()->whereKey($balance->getKey())->lockForUpdate()->firstOrFail();
+
+                if ($yearDays > (float) $balance->remaining_days) {
+                    throw new InsufficientLeaveBalanceException(
+                        "Insufficient leave balance to approve request (need {$yearDays}, remaining {$balance->remaining_days})."
+                    );
+                }
+
+                $this->balances->decrement($balance, $yearDays);
+
+                continue;
+            }
+
+            $balance = $this->balances->lockBalance($employee, $year, $request->type);
+
+            if ($balance !== null) {
+                $this->balances->increment($balance, $yearDays);
+            }
         }
     }
 

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * current_key = employee_id only when is_current = true; NULL otherwise.
  *
- * @see docs/ARCHITECTURE.md
+ * @see docs/concepts/architecture.md
  */
 return new class extends Migration
 {

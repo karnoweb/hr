@@ -115,6 +115,27 @@ class WorkflowEngine
     }
 
     /**
+     * Sequential workflows must walk every order group, including optional-only ones.
+     */
+    public function hasIncompleteSequentialOrders(HrDocument $document, Workflow $workflow): bool
+    {
+        if ($this->executionMode($workflow) !== WorkflowExecutionMode::Sequential) {
+            return false;
+        }
+
+        $workflow->loadMissing('steps');
+
+        if ($workflow->steps->isEmpty()) {
+            return false;
+        }
+
+        $completed = $this->completedOrders($document, $workflow);
+        $maxOrder = (int) $workflow->steps->max('order');
+
+        return $completed === [] || max($completed) < $maxOrder;
+    }
+
+    /**
      * @return iterable<WorkflowStep>
      */
     protected function stepsForInitialActivation(Workflow $workflow): iterable
@@ -213,14 +234,11 @@ class WorkflowEngine
 
         foreach ($workflow->steps->groupBy('order') as $order => $steps) {
             $requiredSteps = $steps->where('is_required', true);
-
-            if ($requiredSteps->isEmpty()) {
-                continue;
-            }
+            $relevantSteps = $requiredSteps->isEmpty() ? $steps : $requiredSteps;
 
             $allResolved = true;
 
-            foreach ($requiredSteps as $step) {
+            foreach ($relevantSteps as $step) {
                 /** @var DocumentApproval|null $approval */
                 $approval = $document->approvals()->where('workflow_step_id', $step->id)->first();
 

@@ -225,6 +225,18 @@ class LoanTest extends TestCase
         ]);
     }
 
+    public function test_apply_rejects_installment_amount_that_cannot_cover_principal(): void
+    {
+        $employee = $this->employeeWithSalary();
+
+        $this->expectException(InvalidArgumentException::class);
+        Hr::loans()->apply($employee, [
+            'amount' => 10_000_000,
+            'installments' => 3,
+            'installment_amount' => 6_000_000,
+        ]);
+    }
+
     public function test_loan_service_is_container_singleton(): void
     {
         $this->assertSame(

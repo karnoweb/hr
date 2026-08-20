@@ -19,6 +19,8 @@ use Karnoweb\Hr\Models\LoanPayment;
 use Karnoweb\Hr\Models\MissionRequest;
 use Karnoweb\Hr\Models\OvertimeRecord;
 use Karnoweb\Hr\Models\PayrollPeriod;
+use Karnoweb\Hr\Models\PayrollRecord;
+use Karnoweb\Hr\Services\PayrollCalculator;
 
 /**
  * Preloaded payroll inputs for an entire period (HR-155).
@@ -30,18 +32,20 @@ final class PayrollBatchContext
     /**
      * @param  Collection<int, EloquentCollection<int, AttendanceRecord>>  $attendanceByEmployee
      * @param  Collection<int, EloquentCollection<int, LeaveRequest>>  $leaveByEmployee
-     * @param  array<int, float>  $missionDaysByEmployee
+     * @param  Collection<int, EloquentCollection<int, MissionRequest>>  $missionsByEmployee
      * @param  array<int, array<string, int>>  $overtimeByEmployee
-     * @param  Collection<int, EmployeeSalary>  $salariesByEmployee
+     * @param  Collection<int, EloquentCollection<int, EmployeeSalary>>  $salariesByEmployee
      * @param  Collection<int, EloquentCollection<int, LoanPayment>>  $loanPaymentsByEmployee
+     * @param  array<int, array{taxable: float, tax: float, months: int}>  $priorTaxByEmployee
      */
     public function __construct(
         private Collection $attendanceByEmployee,
         private Collection $leaveByEmployee,
-        private array $missionDaysByEmployee,
+        private Collection $missionsByEmployee,
         private array $overtimeByEmployee,
         private Collection $salariesByEmployee,
         private Collection $loanPaymentsByEmployee,
+        private array $priorTaxByEmployee = [],
     ) {}
 
     /**
@@ -55,10 +59,11 @@ final class PayrollBatchContext
             return new self(
                 collect(),
                 collect(),
-                [],
+                collect(),
                 [],
                 collect(),
                 collect(),
+                [],
             );
         }
 
@@ -82,25 +87,27 @@ final class PayrollBatchContext
             ->get()
             ->groupBy('employee_id');
 
-        $missionDaysByEmployee = MissionRequest::query()
-            ->selectRaw('employee_id, SUM(days) as total_days')
+        $missionsByEmployee = MissionRequest::query()
             ->whereIn('employee_id', $employeeIds)
             ->where('status', LeaveRequestStatus::Approved)
             ->whereDate('start_date', '<=', $endDate)
             ->whereDate('end_date', '>=', $startDate)
-            ->groupBy('employee_id')
-            ->pluck('total_days', 'employee_id')
-            ->map(fn ($days) => round((float) $days, 2))
-            ->all();
+            ->get()
+            ->groupBy('employee_id');
 
         $overtimeByEmployee = self::loadOvertimeTotals($employeeIds, $startDate, $endDate);
 
         $salariesByEmployee = EmployeeSalary::query()
             ->whereIn('employee_id', $employeeIds)
-            ->where('is_current', true)
+            ->whereDate('effective_date', '<=', $endDate)
+            ->where(function ($query) use ($startDate) {
+                $query->whereNull('end_date')
+                    ->orWhereDate('end_date', '>=', $startDate);
+            })
             ->with(['items.salaryItem', 'salaryStructure.items.salaryItem'])
+            ->orderBy('effective_date')
             ->get()
-            ->keyBy('employee_id');
+            ->groupBy('employee_id');
 
         $loanPaymentsByEmployee = LoanPayment::query()
             ->where('status', LoanPaymentStatus::Pending)
@@ -122,10 +129,11 @@ final class PayrollBatchContext
         return new self(
             $attendanceByEmployee,
             $leaveByEmployee,
-            $missionDaysByEmployee,
+            $missionsByEmployee,
             $overtimeByEmployee,
             $salariesByEmployee,
             $loanPaymentsByEmployee,
+            self::loadPriorTax($employeeIds, $period),
         );
     }
 
@@ -151,9 +159,15 @@ final class PayrollBatchContext
         return $requests;
     }
 
-    public function missionDaysFor(int $employeeId): float
+    /**
+     * @return EloquentCollection<int, MissionRequest>
+     */
+    public function missionsFor(int $employeeId): EloquentCollection
     {
-        return $this->missionDaysByEmployee[$employeeId] ?? 0.0;
+        /** @var EloquentCollection<int, MissionRequest> $missions */
+        $missions = $this->missionsByEmployee->get($employeeId, new EloquentCollection);
+
+        return $missions;
     }
 
     /**
@@ -164,9 +178,15 @@ final class PayrollBatchContext
         return $this->overtimeByEmployee[$employeeId] ?? self::emptyOvertimeTotals();
     }
 
-    public function salaryFor(int $employeeId): ?EmployeeSalary
+    /**
+     * @return EloquentCollection<int, EmployeeSalary>
+     */
+    public function salariesFor(int $employeeId): EloquentCollection
     {
-        return $this->salariesByEmployee->get($employeeId);
+        /** @var EloquentCollection<int, EmployeeSalary> $salaries */
+        $salaries = $this->salariesByEmployee->get($employeeId, new EloquentCollection);
+
+        return $salaries;
     }
 
     /**
@@ -178,6 +198,14 @@ final class PayrollBatchContext
         $payments = $this->loanPaymentsByEmployee->get($employeeId, new EloquentCollection);
 
         return $payments;
+    }
+
+    /**
+     * @return array{taxable: float, tax: float, months: int}
+     */
+    public function priorTaxFor(int $employeeId): array
+    {
+        return $this->priorTaxByEmployee[$employeeId] ?? ['taxable' => 0.0, 'tax' => 0.0, 'months' => 0];
     }
 
     /**
@@ -204,6 +232,43 @@ final class PayrollBatchContext
             $type = $row->type instanceof OvertimeType ? $row->type->value : (string) $row->type;
             $totals[$employeeId][$type] = ($totals[$employeeId][$type] ?? 0)
                 + (int) ($row->approved_minutes ?? $row->calculated_minutes);
+        }
+
+        return $totals;
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return array<int, array{taxable: float, tax: float, months: int}>
+     */
+    protected static function loadPriorTax(array $employeeIds, PayrollPeriod $period): array
+    {
+        $totals = [];
+
+        foreach ($employeeIds as $employeeId) {
+            $totals[$employeeId] = ['taxable' => 0.0, 'tax' => 0.0, 'months' => 0];
+        }
+
+        $recordTable = (new PayrollRecord)->getTable();
+        $periodTable = (new PayrollPeriod)->getTable();
+
+        $rows = PayrollRecord::query()
+            ->select([
+                "{$recordTable}.employee_id",
+                "{$recordTable}.taxable_income",
+                "{$recordTable}.tax",
+            ])
+            ->join($periodTable, "{$periodTable}.id", '=', "{$recordTable}.payroll_period_id")
+            ->whereIn("{$recordTable}.employee_id", $employeeIds)
+            ->where("{$periodTable}.year", $period->year)
+            ->where("{$periodTable}.month", '<', $period->month)
+            ->get();
+
+        foreach ($rows as $row) {
+            $employeeId = (int) $row->employee_id;
+            $totals[$employeeId]['taxable'] += (float) $row->taxable_income;
+            $totals[$employeeId]['tax'] += (float) $row->tax;
+            $totals[$employeeId]['months']++;
         }
 
         return $totals;

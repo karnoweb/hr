@@ -320,6 +320,49 @@ class LeaveMissionTest extends TestCase
         $this->assertNotNull(Hr::leave()->balance($employee, 2026, 'annual'));
     }
 
+    public function test_mission_approval_revalidates_leave_overlap(): void
+    {
+        $employee = $this->employeeWithAnnualBalance(2026, entitled: 20, remaining: 20);
+
+        $mission = Hr::missions()->request($employee, [
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-12',
+            'destination' => 'Shiraz',
+            'purpose' => 'Visit',
+            'days' => 3,
+        ], ['use_calculated_days' => false]);
+
+        Hr::leave()->request($employee->fresh(), [
+            'type' => 'annual',
+            'start_date' => '2026-06-11',
+            'end_date' => '2026-06-11',
+            'days' => 1,
+        ], ['use_calculated_days' => false]);
+
+        $this->expectException(InvalidArgumentException::class);
+        Hr::missions()->approve($mission->fresh());
+    }
+
+    public function test_pending_leave_reserve_splits_across_years(): void
+    {
+        $employee = $this->employeeWithAnnualBalance(2025, entitled: 5, remaining: 5);
+        $this->seedAnnualBalance($employee, 2026, 5, 5);
+
+        Hr::leave()->request($employee, [
+            'type' => 'annual',
+            'start_date' => '2025-12-29',
+            'end_date' => '2026-01-03',
+            'days' => 6,
+        ], ['use_calculated_days' => false]);
+
+        $reserved2025 = app(LeaveBalanceService::class)->pendingReservedDays($employee, 2025, 'annual');
+        $reserved2026 = app(LeaveBalanceService::class)->pendingReservedDays($employee, 2026, 'annual');
+
+        $this->assertGreaterThan(0, $reserved2025);
+        $this->assertGreaterThan(0, $reserved2026);
+        $this->assertEqualsWithDelta(6.0, $reserved2025 + $reserved2026, 0.01);
+    }
+
     public function test_mission_service_is_container_singleton(): void
     {
         $this->assertSame(

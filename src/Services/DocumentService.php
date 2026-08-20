@@ -347,6 +347,10 @@ class DocumentService
         int|string|null $actorId,
         ?Workflow $workflow = null,
     ): void {
+        if ($workflow !== null && $this->workflowEngine->hasIncompleteSequentialOrders($document, $workflow)) {
+            return;
+        }
+
         if ($this->workflowEngine->hasBlockingRequiredPending($document)) {
             return;
         }

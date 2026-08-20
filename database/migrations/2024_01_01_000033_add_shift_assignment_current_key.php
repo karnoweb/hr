@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Enforce at most one active shift assignment per employee (HR-039).
  *
- * Uses the current_key pattern documented in docs/ARCHITECTURE.md.
+ * Uses the current_key pattern documented in docs/concepts/architecture.md.
  */
 return new class extends Migration
 {

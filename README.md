@@ -2,7 +2,7 @@
 
 A Laravel **domain package** for Iranian HR: employees, organization, contracts, attendance, leave, overtime, salary, loans, payroll (insurance/tax), documents, workflow, and accounting-boundary events.
 
-**Persian usage guide:** [docs/USAGE.md](docs/USAGE.md)  
+**مستندات:** [docs/README.md](docs/README.md) — [مفاهیم](docs/concepts/README.md) و [طرز استفاده](docs/usage/README.md)  
 **Contributing / release:** [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Requirements
@@ -15,7 +15,7 @@ A Laravel **domain package** for Iranian HR: employees, organization, contracts,
 
 ```bash
 # Laravel 13
-composer require karnoweb/hr:^13.1
+composer require karnoweb/hr:^13.2
 
 # Laravel 10–12 (legacy line)
 composer require karnoweb/hr:^1.0
@@ -26,7 +26,7 @@ php artisan vendor:publish --tag=hr-config   # optional
 php artisan migrate
 ```
 
-## What is implemented (v13.1)
+## What is implemented (v13.2)
 
 Use the **`Hr` facade** and sub-services for business operations — they enforce invariants (single current salary/contract/position, document locking, workflow approval, payroll lifecycle, etc.).
 
@@ -43,9 +43,9 @@ Use the **`Hr` facade** and sub-services for business operations — they enforc
 | Loans | `Hr::loans()` | apply, approve, repay, payroll deductions |
 | Payroll | `Hr::payroll()` | open period, calculate, approve, mark paid |
 | Documents | `Hr::documents()` | create, submit, approve/reject, cancel |
-| Accounting | Events only | `PayrollPeriodApproved`, `PayrollPeriodPaid`, `LoanDisbursed` — see [docs/ACCOUNTING.md](docs/ACCOUNTING.md) |
+| Accounting | Events only | `PayrollPeriodApproved`, `PayrollPeriodPaid`, `LoanDisbursed` — see [docs/concepts/accounting.md](docs/concepts/accounting.md) |
 
-**Not included:** HTTP controllers, Filament resources, authorization policies, branch global scopes, or rate limiting — the host app must add these (see [docs/USAGE.md](docs/USAGE.md) integration checklist).
+**Not included:** HTTP controllers, Filament resources, authorization policies, branch global scopes, or rate limiting — the host app must add these (see [docs/usage/security.md](docs/usage/security.md)).
 
 ## Quick example
 
@@ -64,7 +64,7 @@ $doc = Hr::documents()->create(DocumentType::Leave, $employee, ['leave_request_i
 Hr::documents()->submit($doc, actorId: auth()->id());
 ```
 
-More: [docs/USAGE.md](docs/USAGE.md)
+More: [docs/usage/README.md](docs/usage/README.md)
 
 ## Configuration
 
@@ -74,9 +74,9 @@ Key areas in `config/hr.php`: calendar, leave types, overtime rates, insurance/t
 
 | Document | Description |
 |----------|-------------|
-| [docs/USAGE.md](docs/USAGE.md) | Full usage (Persian) |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layer boundaries, ADRs |
-| [docs/ACCOUNTING.md](docs/ACCOUNTING.md) | Accounting integration boundary |
+| [docs/README.md](docs/README.md) | Documentation index |
+| [docs/concepts/](docs/concepts/README.md) | Domain concepts + future-labeled gaps |
+| [docs/usage/](docs/usage/README.md) | Facade usage, rules, errors, stored results |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [hr-package.md](hr-package.md) | Original design blueprint (historical) |
 | [HR-AUDIT.md](HR-AUDIT.md) | Implementation audit index |

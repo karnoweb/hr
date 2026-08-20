@@ -191,7 +191,7 @@ class EmployeeTest extends TestCase
             Loan::query()->where('employee_id', $employee->id)->where('loan_number', 'LN-PENDING')->first()->status
         );
         $this->assertSame(
-            LoanStatus::Active,
+            LoanStatus::Receivable,
             Loan::query()->where('employee_id', $employee->id)->where('loan_number', 'LN-ACTIVE')->first()->status
         );
         $this->assertSame(

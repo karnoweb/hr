@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Karnoweb\Hr\Enums\AttendanceStatus;
 use Karnoweb\Hr\Enums\DocumentType;
+use Karnoweb\Hr\Enums\EmployeeStatus;
 use Karnoweb\Hr\Enums\LeaveRequestStatus;
+use Karnoweb\Hr\Exceptions\InvalidEmployeeLifecycleException;
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\LeaveRequest;
 use Karnoweb\Hr\Models\MissionRequest;
@@ -80,13 +82,23 @@ class MissionService
     public function approve(MissionRequest $mission): MissionRequest
     {
         return DB::transaction(function () use ($mission) {
+            $employee = Employee::query()->whereKey($mission->employee_id)->lockForUpdate()->firstOrFail();
             $mission = MissionRequest::query()->whereKey($mission->getKey())->lockForUpdate()->firstOrFail();
 
             if ($mission->status !== LeaveRequestStatus::Pending) {
                 throw new InvalidArgumentException('Only pending mission requests can be approved.');
             }
 
-            $employee = Employee::query()->findOrFail($mission->employee_id);
+            if ($employee->status !== EmployeeStatus::Active) {
+                throw new InvalidEmployeeLifecycleException(
+                    'Only active employees can have missions approved.'
+                );
+            }
+
+            $start = Carbon::parse($mission->start_date);
+            $end = Carbon::parse($mission->end_date);
+            $this->assertNoMissionOverlap($employee, $start, $end, $mission->id);
+            $this->assertNoLeaveOverlap($employee, $start, $end);
 
             $mission->update(['status' => LeaveRequestStatus::Approved]);
 

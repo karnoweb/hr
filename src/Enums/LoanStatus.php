@@ -8,6 +8,7 @@ enum LoanStatus: string
     case Active = 'active';
     case Completed = 'completed';
     case Cancelled = 'cancelled';
+    case Receivable = 'receivable';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum LoanStatus: string
             self::Active => __('hr::enums.loan_status.active'),
             self::Completed => __('hr::enums.loan_status.completed'),
             self::Cancelled => __('hr::enums.loan_status.cancelled'),
+            self::Receivable => __('hr::enums.loan_status.receivable'),
         };
     }
 
@@ -26,6 +28,7 @@ enum LoanStatus: string
             self::Active => 'info',
             self::Completed => 'success',
             self::Cancelled => 'secondary',
+            self::Receivable => 'danger',
         };
     }
 

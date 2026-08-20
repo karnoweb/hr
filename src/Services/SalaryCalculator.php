@@ -112,20 +112,35 @@ class SalaryCalculator
         }
 
         $expanded = $items->all();
+        $pending = [];
 
-        foreach ($items as $item) {
-            foreach ($this->dependencyCodes($item) as $dependencyCode) {
-                if ($dependencyCode === 'base_salary' || isset($expanded[$dependencyCode])) {
+        foreach ($expanded as $item) {
+            foreach ($this->missingDependencyCodes($item, $expanded) as $code) {
+                $pending[$code] = true;
+            }
+        }
+
+        while ($pending !== []) {
+            $codes = array_keys($pending);
+            $pending = [];
+            $found = SalaryItem::query()->whereIn('code', $codes)->get()->keyBy('code');
+
+            foreach ($codes as $code) {
+                $dependency = $found->get($code);
+
+                if ($dependency === null) {
+                    throw new InvalidArgumentException("Salary item depends on unknown code [{$code}].");
+                }
+
+                if (isset($expanded[$code])) {
                     continue;
                 }
 
-                $dependency = SalaryItem::query()->where('code', $dependencyCode)->first();
+                $expanded[$code] = $dependency;
 
-                if ($dependency === null) {
-                    throw new InvalidArgumentException("Salary item [{$item->code}] depends on unknown code [{$dependencyCode}].");
+                foreach ($this->missingDependencyCodes($dependency, $expanded) as $nested) {
+                    $pending[$nested] = true;
                 }
-
-                $expanded[$dependencyCode] = $dependency;
             }
         }
 
@@ -177,6 +192,25 @@ class SalaryCalculator
         }
 
         return $order;
+    }
+
+    /**
+     * @param  array<string, SalaryItem>  $expanded
+     * @return list<string>
+     */
+    protected function missingDependencyCodes(SalaryItem $item, array $expanded): array
+    {
+        $missing = [];
+
+        foreach ($this->dependencyCodes($item) as $code) {
+            if ($code === 'base_salary' || isset($expanded[$code])) {
+                continue;
+            }
+
+            $missing[] = $code;
+        }
+
+        return $missing;
     }
 
     /**

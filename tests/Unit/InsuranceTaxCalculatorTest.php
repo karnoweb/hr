@@ -143,6 +143,61 @@ class InsuranceTaxCalculatorTest extends TestCase
         $this->assertSame(500_000.0, $with['tax']);
     }
 
+    public function test_insurance_uses_versioned_minimum_wage_on_the_rate(): void
+    {
+        config(['hr.payroll.minimum_wage' => 10_000_000]);
+
+        InsuranceRate::query()->create([
+            'effective_date' => '2025-01-01',
+            'employee_rate' => 7,
+            'employer_rate' => 20,
+            'unemployment_rate' => 3,
+            'ceiling_multiplier' => 5,
+            'minimum_wage' => 4_000_000,
+        ]);
+
+        $calculator = new InsuranceCalculator;
+        $result = $calculator->calculate(100_000_000, Carbon::parse('2025-06-01'));
+
+        $this->assertSame(20_000_000.0, $result['capped_base']);
+        $this->assertSame(4_000_000.0, $result['minimum_wage']);
+    }
+
+    public function test_tax_ytd_reconciliation_uses_prior_months(): void
+    {
+        config(['hr.tax.method' => 'ytd_reconciliation']);
+
+        TaxBracket::query()->create([
+            'fiscal_year' => 1404,
+            'effective_date' => '2026-01-01',
+            'annual_exemption' => 0,
+            'brackets' => [
+                ['up_to' => 120_000_000, 'rate' => 10],
+                ['up_to' => null, 'rate' => 20],
+            ],
+        ]);
+
+        $calculator = new TaxCalculator;
+        $month1 = $calculator->calculateMonthly(5_000_000, Carbon::parse('2026-01-31'), yearToDate: [
+            'taxable' => 0,
+            'tax' => 0,
+            'months' => 0,
+        ]);
+        $month2 = $calculator->calculateMonthly(20_000_000, Carbon::parse('2026-02-28'), yearToDate: [
+            'taxable' => 5_000_000,
+            'tax' => $month1['tax'],
+            'months' => 1,
+        ]);
+
+        config(['hr.tax.method' => 'monthly_annualization']);
+        $monthlyOnly = (new TaxCalculator)->calculateMonthly(20_000_000, Carbon::parse('2026-02-28'));
+
+        $this->assertNotEquals($monthlyOnly['tax'], $month2['tax']);
+        $this->assertSame('ytd_reconciliation', $month2['method']);
+        $this->assertSame(25_000_000.0, $month2['ytd_taxable']);
+        $this->assertNotNull($month2['tax_bracket_id']);
+    }
+
     public function test_dependents_exemption_applies_when_config_enabled(): void
     {
         config([

@@ -151,6 +151,66 @@ class WorkflowTest extends TestCase
         $this->assertSame(2, $document->fresh()->approvals()->count());
     }
 
+    public function test_sequential_optional_only_order_advances_to_required_step(): void
+    {
+        $employee = Hr::employees()->createForUser($this->makeUser(), ['branch_id' => 1]);
+
+        $workflow = Workflow::query()->create([
+            'branch_id' => 1,
+            'name' => 'Optional then required',
+            'document_type' => DocumentType::Leave->value,
+            'is_active' => true,
+            'priority' => 30,
+            'execution_mode' => WorkflowExecutionMode::Sequential,
+        ]);
+
+        WorkflowStep::query()->create([
+            'workflow_id' => $workflow->id,
+            'order' => 1,
+            'name' => 'Optional A',
+            'approver_type' => ApproverType::User,
+            'approver_id' => 9301,
+            'is_required' => false,
+        ]);
+
+        WorkflowStep::query()->create([
+            'workflow_id' => $workflow->id,
+            'order' => 1,
+            'name' => 'Optional B',
+            'approver_type' => ApproverType::User,
+            'approver_id' => 9302,
+            'is_required' => false,
+        ]);
+
+        WorkflowStep::query()->create([
+            'workflow_id' => $workflow->id,
+            'order' => 2,
+            'name' => 'Required C',
+            'approver_type' => ApproverType::User,
+            'approver_id' => 9303,
+            'is_required' => true,
+        ]);
+
+        $document = Hr::documents()->create(DocumentType::Leave, $employee);
+        Hr::documents()->submit($document, actorId: 1);
+
+        $this->assertSame(DocumentStatus::Pending, $document->fresh()->status);
+        $this->assertSame(2, $document->approvals()->count());
+
+        foreach ($document->approvals()->get() as $approval) {
+            Hr::documents()->approve($approval, null, actorId: $approval->assigned_to);
+        }
+
+        $document = $document->fresh();
+        $this->assertSame(3, $document->approvals()->count());
+        $this->assertSame(DocumentStatus::Pending, $document->status);
+
+        $required = $document->approvals()->whereHas('step', fn ($q) => $q->where('is_required', true))->first();
+        Hr::documents()->approve($required, null, actorId: 9303);
+
+        $this->assertSame(DocumentStatus::Approved, $document->fresh()->status);
+    }
+
     public function test_reject_is_blocked_when_step_disallows_it(): void
     {
         $employee = Hr::employees()->createForUser($this->makeUser(), ['branch_id' => 1]);

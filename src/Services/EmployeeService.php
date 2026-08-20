@@ -38,7 +38,7 @@ use Morilog\Jalali\Jalalian;
  *
  * Authorization and branch-scoping are the integrating application's responsibility.
  * This package does not enforce who may call these methods or which branch's employees
- * a caller may see — see docs/USAGE.md "Security model".
+ * a caller may see — see docs/usage/security.md.
  *
  * @see Employee
  * @see EmployeePosition
@@ -47,6 +47,7 @@ class EmployeeService
 {
     public function __construct(
         protected SequenceGenerator $sequences,
+        protected LoanService $loans,
     ) {}
 
     /**
@@ -251,7 +252,8 @@ class EmployeeService
      * - open positions → end_date set
      * - current salaries → is_current=false, end_date set
      * - pending leave/mission requests → Cancelled
-     * - pending loans → Cancelled (active/disbursed loans are left alone)
+     * - pending loans → Cancelled
+     * - active loans → `hr.loan.termination_policy` (default: mark receivable)
      * - pending document approvals for this employee's documents, or assigned to
      *   their employable id → Skipped
      *
@@ -333,6 +335,8 @@ class EmployeeService
                     'status' => LoanStatus::Cancelled,
                     'updated_at' => now(),
                 ]);
+
+            $this->loans->handleTermination($employee);
 
             $documentIds = HrDocument::query()
                 ->where('employee_id', $employee->id)

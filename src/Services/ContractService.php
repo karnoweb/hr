@@ -19,7 +19,7 @@ use Karnoweb\Hr\Support\QueryExceptionClassifier;
  * Contract lifecycle: hire, renew, extend, terminate.
  *
  * Enforces exactly one active contract per employee via the `active_key` DB
- * invariant (see docs/ARCHITECTURE.md).
+ * invariant (see docs/concepts/architecture.md).
  */
 class ContractService
 {

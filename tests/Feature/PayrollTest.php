@@ -188,6 +188,58 @@ class PayrollTest extends TestCase
         );
     }
 
+    public function test_mid_period_salary_change_is_prorated(): void
+    {
+        $employee = $this->employeeWithSalary(50_000_000);
+
+        Hr::salaries()->changeSalary($employee, [
+            'base_salary' => 70_000_000,
+            'effective_date' => '2026-03-15',
+        ]);
+
+        $period = Hr::payroll()->openPeriod(1, 2026, 3);
+        Hr::payroll()->calculate($period);
+
+        $record = PayrollRecord::query()
+            ->where('payroll_period_id', $period->id)
+            ->where('employee_id', $employee->id)
+            ->firstOrFail();
+
+        $expected = round((50_000_000 * 14 / 31) + (70_000_000 * 17 / 31), 2);
+
+        $this->assertEqualsWithDelta($expected, (float) $record->base_salary, 0.01);
+        $this->assertCount(2, $record->calculation_log['salary_segments'] ?? []);
+        $this->assertSame('calendar_days', $record->calculation_log['policy']['salary_proration']);
+        $this->assertArrayHasKey('insurance_rate_id', $record->calculation_log['insurance']);
+        $this->assertArrayHasKey('tax_bracket_id', $record->calculation_log['tax']);
+    }
+
+    public function test_cross_period_leave_is_allocated_to_overlap_only(): void
+    {
+        $employee = $this->employeeWithSalary();
+
+        LeaveRequest::query()->create([
+            'employee_id' => $employee->id,
+            'type' => 'annual',
+            'start_date' => '2026-02-26',
+            'end_date' => '2026-03-03',
+            'days' => 6,
+            'status' => LeaveRequestStatus::Approved,
+        ]);
+
+        $period = Hr::payroll()->openPeriod(1, 2026, 3);
+        Hr::payroll()->calculate($period);
+
+        $record = PayrollRecord::query()
+            ->where('payroll_period_id', $period->id)
+            ->where('employee_id', $employee->id)
+            ->firstOrFail();
+
+        $this->assertLessThan(6, (float) $record->leave_days_paid);
+        $this->assertGreaterThan(0, (float) $record->leave_days_paid);
+        $this->assertNotEmpty($record->calculation_log['leave_allocation'] ?? []);
+    }
+
     public function test_payroll_service_is_container_singleton(): void
     {
         $this->assertSame(

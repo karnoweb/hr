@@ -11,13 +11,14 @@ use Illuminate\Support\Carbon;
  * @property float $employer_rate
  * @property float $unemployment_rate
  * @property float $ceiling_multiplier
+ * @property float|null $minimum_wage
  */
 class InsuranceRate extends BaseModel
 {
     protected $table = 'insurance_rates';
 
     protected $fillable = [
-        'effective_date', 'employee_rate', 'employer_rate', 'unemployment_rate', 'ceiling_multiplier', 'notes',
+        'effective_date', 'employee_rate', 'employer_rate', 'unemployment_rate', 'ceiling_multiplier', 'minimum_wage', 'notes',
     ];
 
     protected $casts = [
@@ -26,6 +27,7 @@ class InsuranceRate extends BaseModel
         'employer_rate' => 'decimal:2',
         'unemployment_rate' => 'decimal:2',
         'ceiling_multiplier' => 'decimal:2',
+        'minimum_wage' => 'decimal:2',
     ];
 
     public static function forDate(\DateTimeInterface|string $date): ?self

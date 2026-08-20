@@ -103,6 +103,9 @@ class RatesImportService
             'employer_rate' => (float) $data['employer_rate'],
             'unemployment_rate' => (float) $data['unemployment_rate'],
             'ceiling_multiplier' => (float) ($data['ceiling_multiplier'] ?? 7),
+            'minimum_wage' => isset($data['minimum_wage'])
+                ? (float) $data['minimum_wage']
+                : (float) config('hr.payroll.minimum_wage', 0),
             'notes' => $data['notes'] ?? 'Imported via hr:import-rates — NEEDS VERIFICATION (legal/regulatory).',
         ];
 

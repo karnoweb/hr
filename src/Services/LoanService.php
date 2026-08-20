@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Karnoweb\Hr\Enums\LoanPaymentStatus;
 use Karnoweb\Hr\Enums\LoanStatus;
 use Karnoweb\Hr\Events\LoanDisbursed;
+use Karnoweb\Hr\Exceptions\InvalidEmployeeLifecycleException;
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\Loan;
 use Karnoweb\Hr\Models\LoanPayment;
@@ -272,6 +273,8 @@ class LoanService
             ? round((float) $data['installment_amount'], 2)
             : round($amount / $installments, 2);
 
+        $this->assertInstallmentSchedule($amount, $installments, $installmentAmount);
+
         $startDate = isset($data['start_date'])
             ? Carbon::parse($data['start_date'])->startOfDay()
             : Carbon::now()->startOfDay();
@@ -314,6 +317,59 @@ class LoanService
         }
         $this->assertLoanCooldown($employee, $proposedStartDate ?? Carbon::now()->startOfDay(), $excludeLoanId);
         $this->assertInstallmentSalaryLimit($employee, $installmentAmount);
+        $this->assertInstallmentSchedule($amount, $installments, $installmentAmount);
+    }
+
+    protected function assertInstallmentSchedule(float $amount, int $installments, float $installmentAmount): void
+    {
+        if ($installmentAmount <= 0) {
+            throw new InvalidArgumentException('Installment amount must be greater than zero.');
+        }
+
+        $lastInstallment = round($amount - ($installmentAmount * ($installments - 1)), 2);
+
+        if ($lastInstallment <= 0) {
+            throw new InvalidArgumentException(
+                'Loan installment schedule would produce a non-positive final installment.'
+            );
+        }
+
+        if (round($installmentAmount * $installments, 2) + 0.01 < $amount) {
+            throw new InvalidArgumentException(
+                'Installment amount is too small to cover the loan principal.'
+            );
+        }
+    }
+
+    /**
+     * Apply configured termination policy to outstanding active loans.
+     */
+    public function handleTermination(Employee $employee): void
+    {
+        $policy = (string) config('hr.loan.termination_policy', 'mark_receivable');
+
+        $active = Loan::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', LoanStatus::Active)
+            ->lockForUpdate()
+            ->get();
+
+        if ($active->isEmpty() || $policy === 'leave_active') {
+            return;
+        }
+
+        if ($policy === 'require_settlement') {
+            throw new InvalidEmployeeLifecycleException(
+                'Employee has outstanding active loans that must be settled before termination.'
+            );
+        }
+
+        foreach ($active as $loan) {
+            $loan->update([
+                'status' => LoanStatus::Receivable,
+                'notes' => trim(($loan->notes ?? '').' [termination: outstanding balance remains receivable]'),
+            ]);
+        }
     }
 
     protected function assertActiveLoanLimit(Employee $employee, ?int $excludeLoanId = null): void
@@ -411,6 +467,12 @@ class LoanService
             $paymentAmount = $i === $installments
                 ? round($totalAmount - ($regularInstallment * ($installments - 1)), 2)
                 : $regularInstallment;
+
+            if ($paymentAmount <= 0) {
+                throw new InvalidArgumentException(
+                    'Loan installment schedule would produce a non-positive installment.'
+                );
+            }
 
             LoanPayment::query()->create([
                 'loan_id' => $loan->id,

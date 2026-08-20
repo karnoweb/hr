@@ -120,6 +120,7 @@ class OvertimeService
     public function approve(OvertimeRecord $record, ?int $approvedBy = null): OvertimeRecord
     {
         return DB::transaction(function () use ($record, $approvedBy) {
+            $employee = Employee::query()->whereKey($record->employee_id)->lockForUpdate()->firstOrFail();
             $record = OvertimeRecord::query()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
 
             if ($record->status !== OvertimeStatus::Pending) {
@@ -135,7 +136,7 @@ class OvertimeService
             }
 
             $minutes = (int) $record->calculated_minutes;
-            $this->assertMonthlyCap($record, $minutes);
+            $this->assertMonthlyCap($record, $minutes, $employee);
 
             $record->update([
                 'status' => OvertimeStatus::Approved,
@@ -245,7 +246,7 @@ class OvertimeService
         );
     }
 
-    protected function assertMonthlyCap(OvertimeRecord $record, int $additionalMinutes): void
+    protected function assertMonthlyCap(OvertimeRecord $record, int $additionalMinutes, ?Employee $employee = null): void
     {
         $cap = (int) config('hr.overtime.monthly_cap', 0);
 
@@ -253,7 +254,7 @@ class OvertimeService
             return;
         }
 
-        $employee = Employee::query()->findOrFail($record->employee_id);
+        $employee ??= Employee::query()->whereKey($record->employee_id)->lockForUpdate()->firstOrFail();
         $used = $this->approvedMinutesForMonth($employee, Carbon::parse($record->date));
 
         if ($used + $additionalMinutes > $cap) {

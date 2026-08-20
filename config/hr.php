@@ -201,6 +201,9 @@ return [
     'tax' => [
         // NEEDS VERIFICATION (legal/regulatory): exemption/brackets seed tax_brackets (assumed FY 1403).
         'enabled' => true,
+        // monthly_annualization: each month independently (monthly taxable × 12).
+        // ytd_reconciliation: annualize year-to-date taxable and withhold the delta.
+        'method' => 'monthly_annualization',
         'annual_exemption' => 672000000,
         'dependents_exemption' => [
             // NEEDS VERIFICATION (legal/regulatory): disabled by default — enable only after legal review.
@@ -230,6 +233,8 @@ return [
         'min_months_between_loans' => 6,
         'max_active_loans' => 2,
         'max_percentage_of_salary' => 50,
+        // leave_active | require_settlement | mark_receivable
+        'termination_policy' => 'mark_receivable',
     ],
 
     /*
@@ -239,9 +244,13 @@ return [
     */
     'payroll' => [
         'closing_day' => 'end_of_month',
-        'minimum_wage' => 53304000, // NEEDS VERIFICATION (legal/regulatory)
+        'minimum_wage' => 53304000, // NEEDS VERIFICATION (legal/regulatory); fallback when insurance_rates.minimum_wage is null
         'daily_work_minutes' => 480,
         'payment_day' => 1,
+        // period_effective | current
+        'salary_resolution' => 'period_effective',
+        // calendar_days | working_days | none (use salary in force on period end)
+        'salary_proration' => 'calendar_days',
     ],
 
     /*

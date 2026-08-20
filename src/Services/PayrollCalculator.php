@@ -4,7 +4,6 @@ namespace Karnoweb\Hr\Services;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
-use InvalidArgumentException;
 use Karnoweb\Hr\Calculators\InsuranceCalculator;
 use Karnoweb\Hr\Calculators\TaxCalculator;
 use Karnoweb\Hr\Enums\AttendanceStatus;
@@ -17,6 +16,8 @@ use Karnoweb\Hr\Models\LeaveRequest;
 use Karnoweb\Hr\Models\MissionRequest;
 use Karnoweb\Hr\Models\PayrollPeriod;
 use Karnoweb\Hr\Support\PayrollBatchContext;
+use Karnoweb\Hr\Support\PeriodRangeAllocator;
+use Karnoweb\Hr\Support\SalaryPeriodAggregator;
 
 /**
  * Per-employee payroll aggregation (HR-090–HR-096).
@@ -33,6 +34,8 @@ class PayrollCalculator
         protected LoanService $loans,
         protected InsuranceCalculator $insurance,
         protected TaxCalculator $tax,
+        protected PeriodRangeAllocator $allocator,
+        protected SalaryPeriodAggregator $salaryPeriods,
     ) {}
 
     /**
@@ -57,9 +60,9 @@ class PayrollCalculator
 
         $attendance = $this->aggregateAttendance($employee, $period, $periodStart, $periodEnd, $batch);
         $leave = $this->aggregateLeave($employee, $periodStart, $periodEnd, $batch);
-        $missionDays = $this->aggregateMissionDays($employee, $periodStart, $periodEnd, $batch);
+        $mission = $this->aggregateMissionDays($employee, $periodStart, $periodEnd, $batch);
         $overtime = $this->aggregateOvertime($employee, $period, $batch);
-        $salary = $this->aggregateSalary($employee, $batch);
+        $salary = $this->aggregateSalary($employee, $periodStart, $periodEnd, $batch);
 
         $baseSalary = $salary['base_salary'];
         $hourlyRate = $this->hourlyRate($baseSalary, (int) $period->working_days);
@@ -89,12 +92,20 @@ class PayrollCalculator
             $asOfDate,
             (bool) $employee->insurance_exempt,
         );
+        $priorTax = $batch !== null
+            ? $batch->priorTaxFor((int) $employee->id)
+            : ['taxable' => 0.0, 'tax' => 0.0, 'months' => 0];
         $taxResult = $this->tax->calculateMonthly(
             $taxableBase,
             $asOfDate,
             (int) ($employee->dependents_count ?? 0),
             (float) ($employee->additional_tax_exemption ?? 0),
             (bool) $employee->tax_exempt,
+            [
+                'taxable' => (float) $priorTax['taxable'],
+                'tax' => (float) $priorTax['tax'],
+                'months' => max(0, (int) $period->month - 1),
+            ],
         );
 
         $loanPayments = $batch !== null
@@ -115,7 +126,7 @@ class PayrollCalculator
             'absent_days' => $attendance['absent_days'],
             'leave_days_paid' => $leave['paid'],
             'leave_days_unpaid' => $leave['unpaid'],
-            'mission_days' => $missionDays,
+            'mission_days' => $mission['days'],
             'late_minutes' => $attendance['late_minutes'],
             'early_leave_minutes' => $attendance['early_leave_minutes'],
             'overtime_minutes' => $overtime['minutes']['regular'],
@@ -145,6 +156,15 @@ class PayrollCalculator
                     'amount' => (float) $payment->amount,
                     'installment_number' => $payment->installment_number,
                 ])->values()->all(),
+                'salary_segments' => $salary['segments'],
+                'leave_allocation' => $leave['allocations'],
+                'mission_allocation' => $mission['allocations'],
+                'policy' => [
+                    'salary_resolution' => $salary['policy']['resolution'],
+                    'salary_proration' => $salary['policy']['proration'],
+                    'tax_method' => $taxResult['method'] ?? config('hr.tax.method'),
+                    'daily_work_minutes' => (int) config('hr.payroll.daily_work_minutes', 480),
+                ],
             ],
         ];
     }
@@ -196,7 +216,7 @@ class PayrollCalculator
     }
 
     /**
-     * @return array{paid: float, unpaid: float}
+     * @return array{paid: float, unpaid: float, allocations: list<array<string, mixed>>}
      */
     protected function aggregateLeave(
         Employee $employee,
@@ -215,9 +235,17 @@ class PayrollCalculator
 
         $paid = 0.0;
         $unpaid = 0.0;
+        $allocations = [];
 
         foreach ($requests as $request) {
-            $days = (float) $request->days;
+            $days = $this->allocator->allocateDaysInWindow(
+                Carbon::parse($request->start_date),
+                Carbon::parse($request->end_date),
+                $periodStart,
+                $periodEnd,
+                (float) $request->days,
+                $employee->branch_id,
+            );
             $isPaid = (bool) config("hr.leave.types.{$request->type}.paid", true);
 
             if ($isPaid) {
@@ -225,32 +253,63 @@ class PayrollCalculator
             } else {
                 $unpaid += $days;
             }
+
+            $allocations[] = [
+                'leave_request_id' => $request->id,
+                'type' => $request->type,
+                'allocated_days' => $days,
+                'paid' => $isPaid,
+            ];
         }
 
         return [
             'paid' => round($paid, 2),
             'unpaid' => round($unpaid, 2),
+            'allocations' => $allocations,
         ];
     }
 
+    /**
+     * @return array{days: float, allocations: list<array<string, mixed>>}
+     */
     protected function aggregateMissionDays(
         Employee $employee,
         Carbon $periodStart,
         Carbon $periodEnd,
         ?PayrollBatchContext $batch = null,
-    ): float {
-        if ($batch !== null) {
-            return $batch->missionDaysFor($employee->id);
+    ): array {
+        $missions = $batch !== null
+            ? $batch->missionsFor($employee->id)
+            : MissionRequest::query()
+                ->where('employee_id', $employee->id)
+                ->where('status', LeaveRequestStatus::Approved)
+                ->whereDate('start_date', '<=', $periodEnd->toDateString())
+                ->whereDate('end_date', '>=', $periodStart->toDateString())
+                ->get();
+
+        $total = 0.0;
+        $allocations = [];
+
+        foreach ($missions as $mission) {
+            $days = $this->allocator->allocateDaysInWindow(
+                Carbon::parse($mission->start_date),
+                Carbon::parse($mission->end_date),
+                $periodStart,
+                $periodEnd,
+                (float) $mission->days,
+                $employee->branch_id,
+            );
+            $total += $days;
+            $allocations[] = [
+                'mission_request_id' => $mission->id,
+                'allocated_days' => $days,
+            ];
         }
 
-        $days = MissionRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', LeaveRequestStatus::Approved)
-            ->whereDate('start_date', '<=', $periodEnd->toDateString())
-            ->whereDate('end_date', '>=', $periodStart->toDateString())
-            ->sum('days');
-
-        return round((float) $days, 2);
+        return [
+            'days' => round($total, 2),
+            'allocations' => $allocations,
+        ];
     }
 
     /**
@@ -279,44 +338,33 @@ class PayrollCalculator
      *     base_salary: float,
      *     earnings: list<array<string, mixed>>,
      *     deductions: list<array<string, mixed>>,
-     *     totals: array<string, float>
+     *     totals: array<string, float>,
+     *     segments: list<array<string, mixed>>,
+     *     policy: array{resolution: string, proration: string}
      * }
      */
-    protected function aggregateSalary(Employee $employee, ?PayrollBatchContext $batch = null): array
-    {
-        $current = $batch !== null
-            ? $batch->salaryFor($employee->id)
-            : $this->salaries->currentSalary($employee);
+    protected function aggregateSalary(
+        Employee $employee,
+        Carbon $periodStart,
+        Carbon $periodEnd,
+        ?PayrollBatchContext $batch = null,
+    ): array {
+        $salaries = $batch !== null
+            ? $batch->salariesFor($employee->id)
+            : $this->salaries->salariesForPeriod($employee, $periodStart, $periodEnd);
 
-        if ($current === null) {
-            throw new InvalidArgumentException("Employee {$employee->id} has no current salary for payroll.");
+        if ($salaries->isEmpty() && config('hr.payroll.salary_resolution') === 'current') {
+            $current = $this->salaries->currentSalary($employee);
+            $salaries = $current !== null ? new Collection([$current]) : $salaries;
         }
 
-        $calculated = $this->salaryCalculator->calculate($current);
-
-        $earnings = [];
-        $deductions = [];
-
-        foreach ($calculated['items'] as $item) {
-            $row = [
-                'code' => $item['code'],
-                'name' => $item['name'],
-                'amount' => $item['amount'],
-            ];
-
-            if ($item['type'] === 'earning') {
-                $earnings[] = $row;
-            } else {
-                $deductions[] = $row;
-            }
-        }
-
-        return [
-            'base_salary' => (float) $calculated['base_salary'],
-            'earnings' => $earnings,
-            'deductions' => $deductions,
-            'totals' => $calculated['totals'],
-        ];
+        return $this->salaryPeriods->aggregate(
+            $employee,
+            $periodStart,
+            $periodEnd,
+            $salaries,
+            $employee->branch_id,
+        );
     }
 
     protected function hourlyRate(float $baseSalary, int $workingDays): float

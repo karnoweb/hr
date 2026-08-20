@@ -2,6 +2,7 @@
 
 namespace Karnoweb\Hr\Services;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,7 @@ use Karnoweb\Hr\Support\QueryExceptionClassifier;
  * No automatic PartTime/Internship eligibility rules until business policy is confirmed.
  *
  * Enforces exactly one current salary per employee via the `current_key` DB
- * invariant (see docs/ARCHITECTURE.md).
+ * invariant (see docs/concepts/architecture.md).
  */
 class SalaryService
 {
@@ -97,6 +98,28 @@ class SalaryService
             ->where('employee_id', $employee->id)
             ->where('is_current', true)
             ->first();
+    }
+
+    /**
+     * Salary rows whose effective window overlaps [from, to] (inclusive).
+     *
+     * @return Collection<int, EmployeeSalary>
+     */
+    public function salariesForPeriod(Employee $employee, \DateTimeInterface $from, \DateTimeInterface $to)
+    {
+        $start = Carbon::parse($from)->startOfDay()->toDateString();
+        $end = Carbon::parse($to)->startOfDay()->toDateString();
+
+        return EmployeeSalary::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('effective_date', '<=', $end)
+            ->where(function ($query) use ($start) {
+                $query->whereNull('end_date')
+                    ->orWhereDate('end_date', '>=', $start);
+            })
+            ->with(['items.salaryItem', 'salaryStructure.items.salaryItem'])
+            ->orderBy('effective_date')
+            ->get();
     }
 
     protected function lockCurrentSalary(Employee $employee): ?EmployeeSalary

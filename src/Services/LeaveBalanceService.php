@@ -2,17 +2,23 @@
 
 namespace Karnoweb\Hr\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Karnoweb\Hr\Enums\LeaveRequestStatus;
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Models\LeaveBalance;
 use Karnoweb\Hr\Models\LeaveRequest;
+use Karnoweb\Hr\Support\PeriodRangeAllocator;
 
 /**
  * Leave balance ledger: ensure rows, carry-over, termination policy (HR-053 / HR-055).
  */
 class LeaveBalanceService
 {
+    public function __construct(
+        protected PeriodRangeAllocator $allocator,
+    ) {}
+
     /**
      * @return array<string, mixed>|null
      */
@@ -78,17 +84,34 @@ class LeaveBalanceService
 
     public function pendingReservedDays(Employee $employee, int $year, string $type, ?int $excludeRequestId = null): float
     {
+        $yearStart = Carbon::create($year, 1, 1)->startOfDay();
+        $yearEnd = Carbon::create($year, 12, 31)->startOfDay();
+
         $query = LeaveRequest::query()
             ->forEmployee($employee->id)
             ->where('type', $type)
             ->where('status', LeaveRequestStatus::Pending)
-            ->whereYear('start_date', $year);
+            ->whereDate('start_date', '<=', $yearEnd->toDateString())
+            ->whereDate('end_date', '>=', $yearStart->toDateString());
 
         if ($excludeRequestId !== null) {
             $query->whereKeyNot($excludeRequestId);
         }
 
-        return (float) $query->sum('days');
+        $reserved = 0.0;
+
+        foreach ($query->get(['start_date', 'end_date', 'days']) as $request) {
+            $reserved += $this->allocator->allocateDaysInWindow(
+                Carbon::parse($request->start_date),
+                Carbon::parse($request->end_date),
+                $yearStart,
+                $yearEnd,
+                (float) $request->days,
+                $employee->branch_id,
+            );
+        }
+
+        return round($reserved, 2);
     }
 
     public function decrement(LeaveBalance $balance, float $days): void

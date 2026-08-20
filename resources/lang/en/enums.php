@@ -96,6 +96,7 @@ return [
         'active' => 'Active',
         'completed' => 'Completed',
         'cancelled' => 'Cancelled',
+        'receivable' => 'Receivable',
     ],
     'loan_payment_status' => [
         'pending' => 'Pending',
