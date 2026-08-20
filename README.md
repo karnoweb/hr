@@ -15,7 +15,7 @@ A Laravel **domain package** for Iranian HR: employees, organization, contracts,
 
 ```bash
 # Laravel 13
-composer require karnoweb/hr:^14.0
+composer require karnoweb/hr:^13.1
 
 # Laravel 10–12 (legacy line)
 composer require karnoweb/hr:^1.0
@@ -26,7 +26,7 @@ php artisan vendor:publish --tag=hr-config   # optional
 php artisan migrate
 ```
 
-## What is implemented (v14)
+## What is implemented (v13.1)
 
 Use the **`Hr` facade** and sub-services for business operations — they enforce invariants (single current salary/contract/position, document locking, workflow approval, payroll lifecycle, etc.).
 

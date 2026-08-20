@@ -24,8 +24,8 @@ All three must pass. GitHub Actions (`.github/workflows/tests.yml`) runs the sam
 ## Versioning
 
 - **Major versions track Laravel:** `karnoweb/hr` **v13.x** targets **Laravel 13**; the legacy **v1.x** line targets Laravel 10–12.
-- **v14.0.0** is the first audit-complete release after Phases 0–13 (substantial domain implementation vs. early v13 schema-only state). Treat upgrades as requiring migration review and integration testing — see [CHANGELOG.md](CHANGELOG.md).
-- Git tags (`v13.0.6`, `v14.0.0`, …) are the source of truth for releases.
+- **v13.1.0** is the audit-complete release after Phases 0–14 (substantial domain implementation vs. early v13.0 schema-only state). Treat upgrades from early v13.0.x as requiring migration review — see [CHANGELOG.md](CHANGELOG.md).
+- Git tags (`v13.0.6`, `v13.1.0`, …) are the source of truth for releases.
 - `composer.json` includes a `"version"` field for Packagist visibility; **update it in the same commit as each release tag** (see [HR-169](HR-AUDIT-PHASE-14.md)).
 
 ## Release process (maintainers)

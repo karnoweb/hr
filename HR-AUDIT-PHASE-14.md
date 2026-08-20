@@ -1,6 +1,6 @@
 # Implementation Checklist — Phase 14: Documentation / Release / CI
 
-Part of the Karnoweb HR audit. See `HR-AUDIT.md` for the index. Final phase before tagging v14.0.0.
+Part of the Karnoweb HR audit. See `HR-AUDIT.md` for the index. Final phase before tagging v13.1.0 (Laravel 13 line).
 
 - [x] HR-161 — Verify `LICENSE` file is present (HR-009)
   - `LICENSE` (MIT) at repository root
@@ -15,7 +15,7 @@ Part of the Karnoweb HR audit. See `HR-AUDIT.md` for the index. Final phase befo
   - `CONTRIBUTING.md` documentation map; links from `README.md`
 
 - [x] HR-165 — Populate `CHANGELOG.md` as phases land (P2)
-  - Sections through 13.0.6 + 14.0.0 release notes
+  - Sections through 13.0.6 + 13.1.0 release notes
 
 - [x] HR-166 — Add `CONTRIBUTING.md` (P2)
   - Local test/pint/phpstan workflow, versioning, release process
@@ -23,8 +23,8 @@ Part of the Karnoweb HR audit. See `HR-AUDIT.md` for the index. Final phase befo
 - [x] HR-167 — Finalize CI (tests + Pint + Larastan) (P1)
   - `.github/workflows/tests.yml` — branch protection documented in `CONTRIBUTING.md`
 
-- [x] HR-168 — Tag and document v14.0.0 release notes (P1)
-  - `CHANGELOG.md` [14.0.0]; git tag `v14.0.0`
+- [x] HR-168 — Tag and document v13.1.0 release notes (P1)
+  - `CHANGELOG.md` [13.1.0]; git tag `v13.1.0` (Laravel 13 line — not v14)
 
 - [x] HR-169 — `composer.json` version field (P3)
   - Kept and documented: update in lockstep with each release tag

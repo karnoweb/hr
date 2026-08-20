@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-## [14.0.0] - 2026-08-20
+## [13.1.0] - 2026-08-20
 
-First audit-complete release (Phases 0–14). **Major version** aligned with Laravel 13; substantial domain implementation vs. early v13 schema-only state.
+Audit-complete release (Phases 0–14) on the **Laravel 13 package line** (`karnoweb/hr` v13.x). Substantial domain implementation vs. early v13.0 schema-only state.
 
 ### Added
 
@@ -16,10 +16,11 @@ First audit-complete release (Phases 0–14). **Major version** aligned with Lar
 
 ### Changed
 
-- **Breaking vs. early v13:** use service methods (`Hr::…()`) instead of raw Eloquent for governed entities; document approval requires explicit `actorId` outside web auth; workflow configuration validated on save.
+- **Breaking vs. early v13.0.x:** use service methods (`Hr::…()`) instead of raw Eloquent for governed entities; document approval requires explicit `actorId` outside web auth; workflow configuration validated on save.
 
 ### Notes
 
+- Package major version stays **13** to match Laravel 13 — not a separate semver major.
 - Host app must implement branch scoping, authorization policies, and rate limiting — see [docs/USAGE.md](docs/USAGE.md).
 - Insurance/tax rate seeds marked **NEEDS VERIFICATION** for production payroll.
 - CI: PHPUnit + Pint + PHPStan on every PR (`.github/workflows/tests.yml`).
