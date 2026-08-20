@@ -273,24 +273,39 @@ class User extends Authenticatable
 ### ایجاد کارمند برای یک User
 
 ```php
+$user = User::find(1);
+```
+
+#### پیشنهادی: فاساد
+
+```php
+use Karnoweb\Hr\Facades\Hr;
+
+$employee = Hr::employees()->createForUser($user, [
+    'branch_id' => 1,
+    'hire_date' => now(),
+    'national_id' => '0123456789',
+]);
+
+$employee = Hr::employees()->findByUser($user);
+```
+
+<details>
+<summary>روش مستقیم Eloquent (فقط seed/test — توصیه نمی‌شود)</summary>
+
+```php
 use Karnoweb\Hr\Models\Employee;
 use Karnoweb\Hr\Enums\EmployeeStatus;
 
-$user = User::find(1);
-
 $employee = $user->employee()->create([
     'branch_id' => 1,
-    'employee_code' => '1403-0001',  // یا با سرویس خودکار تولید شود
+    'employee_code' => '1403-0001',
     'hire_date' => now(),
     'status' => EmployeeStatus::Active,
-    'national_id' => '0123456789',
-    'insurance_number' => '1234567890',
-    // ...
 ]);
-
-// یا اگر employee از قبل وجود دارد:
-$employee = $user->employee;
 ```
+
+</details>
 
 ### دسترسی از Employee به User
 
@@ -302,6 +317,8 @@ $user = $employee->employable;  // مثلاً همان User
 ---
 
 ## ساختار سازمانی
+
+> **داده پایه:** برای `Department`، `Position` و `Shift` هنوز سرویس دامنه جداگانه‌ای وجود ندارد. ایجاد مستقیم Eloquent فقط برای **seed / پنل ادمین اولیه** مناسب است. انتساب کارمند به سمت/دپارتمان و شیفت را حتماً از سرویس‌های HR انجام دهید.
 
 ### دپارتمان (درخت سلسله‌مراتبی)
 
@@ -347,24 +364,16 @@ $position = Position::create([
 
 ### انتساب کارمند به دپارتمان و سمت (EmployeePosition)
 
-برای ثبت «کارمند X از تاریخ Y در دپارتمان D با سمت P» از جدول تاریخچه‌ای `employee_positions` استفاده می‌کنید:
+از `Hr::employees()->assignPosition()` استفاده کنید تا invariant «یک سمت جاری» و `current_key` رعایت شود:
 
 ```php
-use Karnoweb\Hr\Models\EmployeePosition;
-
-EmployeePosition::create([
-    'employee_id' => $employee->id,
-    'department_id' => $dev->id,
-    'position_id' => $position->id,
+Hr::employees()->assignPosition($employee, $dev->id, $position->id, '2026-01-01', [
     'is_primary' => true,
-    'effective_date' => now(),
-    'end_date' => null,
+    'hr_document_id' => $documentId,  // اختیاری
 ]);
 
 // دپارتمان و سمت فعلی کارمند
 $employee->load('currentPosition.department', 'currentPosition.position');
-$department = $employee->currentPosition->department;
-$position = $employee->currentPosition->position;
 ```
 
 ---
@@ -416,6 +425,9 @@ $shift = Shift::create([
     'work_minutes' => 420,
     'is_active' => true,
 ]);
+
+// انتساب شیفت به کارمند — از سرویس (نه insert مستقیم)
+Hr::shiftAssignments()->assignShift($employee, $shift->id, '2026-01-01');
 ```
 
 ### ثبت حضور
@@ -440,21 +452,10 @@ Hr::attendance()->clockOut($employee, '2026-03-02 17:30:00');
 Hr::overtime()->approve($record);
 ```
 
-برای ایجاد دستی (غیرمعمول):
+برای ایجاد دستی (غیرمعمول — قوانین سرویس اعمال نمی‌شود):
 
 ```php
-use Karnoweb\Hr\Models\OvertimeRecord;
-use Karnoweb\Hr\Enums\OvertimeType;
-use Karnoweb\Hr\Enums\OvertimeStatus;
-
-OvertimeRecord::create([
-    'employee_id' => $employee->id,
-    'date' => today(),
-    'calculated_minutes' => 60,
-    'approved_minutes' => 60,
-    'type' => OvertimeType::Regular,
-    'status' => OvertimeStatus::Approved,
-]);
+// ⚠️ فقط برای seed/test — در production از clockOut + Hr::overtime()->approve() استفاده کنید
 ```
 
 نرخ‌های اضافه‌کار (عادی، تعطیل، شب) از `config('hr.overtime.rates')` خوانده می‌شوند.
@@ -468,23 +469,14 @@ OvertimeRecord::create([
 ### ایجاد سند (مثلاً مرخصی)
 
 ```php
-use Karnoweb\Hr\Models\HrDocument;
 use Karnoweb\Hr\Enums\DocumentType;
-use Karnoweb\Hr\Enums\DocumentStatus;
 
-$document = HrDocument::create([
-    'employee_id' => $employee->id,
-    'type' => DocumentType::Leave,
-    'effective_date' => now(),
-    'status' => DocumentStatus::Draft,
-    'data' => [
-        'leave_request_id' => $leaveRequest->id,
-        'days' => 3,
-    ],
-    'created_by' => auth()->id(),
-]);
+$document = Hr::documents()->create(DocumentType::Leave, $employee, [
+    'leave_request_id' => $leaveRequest->id,
+    'days' => 3,
+], ['created_by' => auth()->id()]);
 
-// شماره سند به‌صورت خودکار تولید می‌شود (مثلاً LEA-2024-0001)
+// شماره سند (LEA-2024-0001) به‌صورت concurrency-safe تولید می‌شود
 ```
 
 ### ویرایش فقط در وضعیت Draft
@@ -522,14 +514,16 @@ php artisan hr:process-workflow-timeouts
 
 ### آیتم حقوق (SalaryItem)
 
-آیتم‌های درآمد و کسر (حق پایه، بن، اضافه‌کار، بیمه، مالیات و …) در **SalaryItem** تعریف می‌شوند:
+آیتم‌های درآمد و کسر در **SalaryItem** تعریف می‌شوند. این جدول **داده پایه** است (هنوز سرویس assign جداگانه‌ای ندارد) — معمولاً در seed یا migration اولیه پر می‌شود:
 
 ```php
 use Karnoweb\Hr\Models\SalaryItem;
 use Karnoweb\Hr\Enums\SalaryItemType;
 use Karnoweb\Hr\Enums\CalculationType;
 
+// seed / admin setup only
 SalaryItem::create([
+```
     'code' => 'BASE',
     'name' => 'حق پایه',
     'type' => SalaryItemType::Earning,

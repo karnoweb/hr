@@ -38,6 +38,25 @@ Rules for every domain that adopts this pattern:
 
 Do **not** invent a different per-domain uniqueness trick. Phases 2 (contracts / positions) and 6 (salaries) must follow this ADR exactly.
 
+## Layer boundaries (where new code goes)
+
+| Layer | Namespace / path | Put here when… |
+|-------|------------------|----------------|
+| **Service** | `src/Services/` | Orchestrating a use case: transactions, locking, calling calculators, emitting events, enforcing lifecycle rules (`PayrollService`, `DocumentService`, …). |
+| **Calculator** | `src/Calculators/` or `*Calculator` in Services | Pure or mostly pure computation from already-loaded inputs (insurance/tax brackets, salary line items, overtime minutes). No HTTP, no auth. |
+| **Support** | `src/Support/` | Shared non-domain utilities (`SequenceGenerator`, `PayrollBatchContext`, expression evaluators). |
+| **Event** | `src/Events/` | Facts the host app (e.g. accounting) should react to — **no** listener that calls external packages from HR. |
+| **Exception** | `src/Exceptions/` | Typed, catchable domain failures (`PayrollPeriodLockedException`, `UnauthorizedApprovalException`, …). |
+| **Model** | `src/Models/` | Persistence, relations, scopes — **not** multi-step business workflows. |
+| **Enum** | `src/Enums/` | Fixed vocabularies with helpers (`canEdit()`, `label()`, …). |
+
+**Rules of thumb:**
+
+1. Controllers / jobs in the **host app** call `Hr::…()` services; they do not duplicate service rules via raw `Model::create()` for governed entities (salary, documents, loans, payroll periods).
+2. Cross-package integration uses **events + docs**, not hard dependencies (see `docs/ACCOUNTING.md`).
+3. Concurrency-sensitive sequences use `SequenceGenerator`, not `max()+1`.
+4. Authorization is mostly **deferred to the host app** except document approval actor checks — document in `docs/USAGE.md` and `tests/Security/`.
+
 ## Sequence allocation
 
 All business sequence numbers (employee codes, document numbers, …) go through

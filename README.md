@@ -1,8 +1,9 @@
 # Karnoweb HR
 
-A comprehensive HR management package for Laravel with Iranian (Jalali) calendar support, payroll, leave, attendance, workflow, and document management.
+A Laravel **domain package** for Iranian HR: employees, organization, contracts, attendance, leave, overtime, salary, loans, payroll (insurance/tax), documents, workflow, and accounting-boundary events.
 
-**راهنمای استفاده (فارسی):** [docs/USAGE.md](docs/USAGE.md)
+**Persian usage guide:** [docs/USAGE.md](docs/USAGE.md)  
+**Contributing / release:** [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Requirements
 
@@ -14,80 +15,90 @@ A comprehensive HR management package for Laravel with Iranian (Jalali) calendar
 
 ```bash
 # Laravel 13
-composer require karnoweb/hr:^13.0
+composer require karnoweb/hr:^14.0
 
-# Laravel 10–12
+# Laravel 10–12 (legacy line)
 composer require karnoweb/hr:^1.0
 ```
 
-Publish config (optional):
-
 ```bash
-php artisan vendor:publish --tag=hr-config
-```
-
-Run migrations:
-
-```bash
+php artisan vendor:publish --tag=hr-config   # optional
 php artisan migrate
 ```
 
-## Configuration
+## What is implemented (v14)
 
-Edit `config/hr.php` (or use env) for:
+Use the **`Hr` facade** and sub-services for business operations — they enforce invariants (single current salary/contract/position, document locking, workflow approval, payroll lifecycle, etc.).
 
-- **Models**: `HR_USER_MODEL`, `HR_BRANCH_MODEL`
-- **Calendar**: `HR_CALENDAR_TYPE` (jalali | gregorian), week/year start
-- **Leave types**: annual, sick, unpaid, hourly, marriage, maternity, bereavement
-- **Overtime**: rates (regular, holiday, night), night window, monthly cap
-- **Insurance**: social security rates (employee 7%, employer 20%, unemployment 3%)
-- **Tax**: brackets and annual exemption (1403 defaults)
-- **Loan**: max installments, min months between loans, max % of salary
-- **Payroll**: closing day, minimum wage, payment day
-- **Workflow**: document types requiring approval, auto-lock
+| Domain | Facade accessor | Notes |
+|--------|-----------------|-------|
+| Employees | `Hr::employees()` | create, lifecycle, position assignment |
+| Contracts | `Hr::contracts()` | hire, renew, extend, terminate |
+| Attendance | `Hr::attendance()` | clock in/out, metrics |
+| Shift assignment | `Hr::shiftAssignments()` | fixed shift or pattern |
+| Leave | `Hr::leave()` | request, approve, balance |
+| Missions | `Hr::missions()` | request, approve |
+| Overtime | `Hr::overtime()` | sync from attendance, approve |
+| Salary | `Hr::salaries()` | assign, changeSalary |
+| Loans | `Hr::loans()` | apply, approve, repay, payroll deductions |
+| Payroll | `Hr::payroll()` | open period, calculate, approve, mark paid |
+| Documents | `Hr::documents()` | create, submit, approve/reject, cancel |
+| Accounting | Events only | `PayrollPeriodApproved`, `PayrollPeriodPaid`, `LoanDisbursed` — see [docs/ACCOUNTING.md](docs/ACCOUNTING.md) |
 
-## Usage
+**Not included:** HTTP controllers, Filament resources, authorization policies, branch global scopes, or rate limiting — the host app must add these (see [docs/USAGE.md](docs/USAGE.md) integration checklist).
 
-Common operations are done via the **`Hr` facade** and its sub-services; in your app you usually need a single `use`.
-
-### Facade and sub-services
+## Quick example
 
 ```php
 use Karnoweb\Hr\Facades\Hr;
+use Karnoweb\Hr\Enums\DocumentType;
 
-// Config
-Hr::config('leave.types.annual.days_per_year');
+$employee = Hr::employees()->createForUser($user, ['branch_id' => 1]);
+Hr::salaries()->assign($employee, ['base_salary' => 50_000_000, 'effective_date' => '2026-01-01']);
 
-// Employees: create for User, find by User, assign position (employee_code auto-generated if empty)
-$employee = Hr::employees()->createForUser($user, ['branch_id' => 1, 'hire_date' => now()]);
-$employee = Hr::employees()->findByUser($user);
-Hr::employees()->assignPosition($employee, $departmentId, $positionId, $effectiveDate);
-Hr::employees()->generateEmployeeCode($branchId);
+$leave = Hr::leave()->request($employee, [
+    'type' => 'annual', 'start_date' => '2026-05-01', 'end_date' => '2026-05-03', 'days' => 3,
+]);
 
-// Leave: request leave, get balance
-$request = Hr::leave()->request($employee, ['type' => 'annual', 'start_date' => $from, 'end_date' => $to, 'days' => 3]);
-$balance = Hr::leave()->balance($employee, 1403, 'annual');
-
-// Documents and workflow: create, submit, approve/reject step
-$doc = Hr::documents()->create(DocumentType::Leave, $employee, ['leave_request_id' => $request->id, 'days' => 3], ['created_by' => auth()->id()]);
-Hr::documents()->submit($doc);
-Hr::documents()->approve($approval, $comment);
-Hr::documents()->reject($approval, $comment);
+$doc = Hr::documents()->create(DocumentType::Leave, $employee, ['leave_request_id' => $leave->id]);
+Hr::documents()->submit($doc, actorId: auth()->id());
 ```
 
-### Models and Enums (advanced)
+More: [docs/USAGE.md](docs/USAGE.md)
 
-For direct database access use:
+## Configuration
 
-- **Models** (`Karnoweb\Hr\Models`): Employee, Department, Position, EmployeePosition, Contract, LeaveRequest, LeaveBalance, HrDocument, Workflow, WorkflowStep, DocumentApproval, SalaryItem, SalaryStructure, EmployeeSalary, Loan, PayrollPeriod, PayrollRecord, …
-- **Enums** (`Karnoweb\Hr\Enums`): EmployeeStatus, ContractType, DocumentType, DocumentStatus, LeaveRequestStatus, ApprovalStatus, …
+Key areas in `config/hr.php`: calendar, leave types, overtime rates, insurance/tax, loans, payroll, documents, workflow, accounting event dispatch.
 
-More examples: [docs/USAGE.md](docs/USAGE.md)
+## Documentation index
+
+| Document | Description |
+|----------|-------------|
+| [docs/USAGE.md](docs/USAGE.md) | Full usage (Persian) |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layer boundaries, ADRs |
+| [docs/ACCOUNTING.md](docs/ACCOUNTING.md) | Accounting integration boundary |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [hr-package.md](hr-package.md) | Original design blueprint (historical) |
+| [HR-AUDIT.md](HR-AUDIT.md) | Implementation audit index |
+
+## Roadmap (out of package scope)
+
+- Admin UI (Filament/API controllers)
+- Host-app policies and branch scoping middleware
+- Legal rate verification for production payroll (**NEEDS VERIFICATION** flags in config/seeds)
+
+## Development
+
+```bash
+composer test && vendor/bin/pint --test && vendor/bin/phpstan analyse --memory-limit=1G
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Table prefix
 
-All tables use the `hr_` prefix by default (config: `hr.tables.prefix`).
+Default `hr_` — `config('hr.tables.prefix')`.
 
 ## License
 
-MIT.
+MIT — see [LICENSE](LICENSE).

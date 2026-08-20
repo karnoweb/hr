@@ -18,4 +18,4 @@ Small tracker for the HR-AUDIT phase work. Update as each phase lands.
 | 11 Workflow | **Done** | ApproverResolver, WorkflowEngine, conditions, sequential/parallel, timeouts, cancel |
 | 12 Accounting boundary | **Done** | PayrollPeriodApproved/Paid + LoanDisbursed events, docs, standalone test |
 | 13 Security / Performance | **Done** | Branch-scoping docs, auth matrix tests, payroll batch queries, fail-closed workflow validation, 202 tests |
-| 14 Docs / Release / CI | Not started | |
+| 14 Docs / Release / CI | **Done** | README, CONTRIBUTING, ARCHITECTURE, USAGE cleanup, v14.0.0 |

@@ -2,9 +2,35 @@
 
 ## [Unreleased]
 
+## [14.0.0] - 2026-08-20
+
+First audit-complete release (Phases 0–14). **Major version** aligned with Laravel 13; substantial domain implementation vs. early v13 schema-only state.
+
 ### Added
 
-- Phase 13 Security / Performance: multi-branch integration checklist and rate-limit guidance in `docs/USAGE.md` (HR-149, HR-158).
+- Full domain services: employees, contracts, attendance, shifts, leave, missions, overtime, salary, loans, payroll, documents, workflow (Phases 1–11).
+- Insurance/tax calculators, rate import, employee exemptions (Phase 9).
+- Accounting boundary events (`PayrollPeriodApproved`, `PayrollPeriodPaid`, `LoanDisbursed`) without accounting package dependency (Phase 12).
+- Security/performance hardening: branch-scoping docs, authorization matrix tests, payroll batch queries (Phase 13).
+- [CONTRIBUTING.md](CONTRIBUTING.md), expanded [README.md](README.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### Changed
+
+- **Breaking vs. early v13:** use service methods (`Hr::…()`) instead of raw Eloquent for governed entities; document approval requires explicit `actorId` outside web auth; workflow configuration validated on save.
+
+### Notes
+
+- Host app must implement branch scoping, authorization policies, and rate limiting — see [docs/USAGE.md](docs/USAGE.md).
+- Insurance/tax rate seeds marked **NEEDS VERIFICATION** for production payroll.
+- CI: PHPUnit + Pint + PHPStan on every PR (`.github/workflows/tests.yml`).
+
+## [13.0.6] - 2026-08-20
+
+Phase 13 of the HR audit: security documentation and payroll query batching.
+
+### Added
+
+- Multi-branch integration checklist and rate-limit guidance in `docs/USAGE.md` (HR-149, HR-158).
 - `PayrollBatchContext` for batched payroll-period calculation queries (HR-155).
 - `tests/Security/ServiceAuthorizationMatrixTest.php` and `tests/Performance/PayrollBatchQueryTest.php` (HR-150, HR-160).
 - `ConditionEvaluator::validateConditions()` with fail-closed validation on `Workflow`/`WorkflowStep` save (HR-157).
